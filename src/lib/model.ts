@@ -2,6 +2,8 @@ import type { ProteinModel, ProteinResidue, SecondaryType, SulfurAtom } from './
 
 export interface ModelIndicators {
   unfolded: number;
+  reversible: number;
+  trapped: number;
   native: number;
   helixRetention: number;
   sheetRetention: number;
@@ -9,6 +11,12 @@ export interface ModelIndicators {
 }
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+// Didactic hysteresis boundary: above this point the model accumulates a
+// kinetically trapped fraction that cannot fully return to the native state.
+// It is a teaching parameter, not an experimentally established 1LYZ threshold.
+export const IRREVERSIBLE_ONSET_INDEX = 0.82;
+export const MAX_TRAPPED_FRACTION = 0.42;
 const smoothstep = (edge0: number, edge1: number, value: number) => {
   const t = clamp01((value - edge0) / (edge1 - edge0));
   return t * t * (3 - 2 * t);
@@ -37,10 +45,30 @@ export function getSecondaryRetention(amount: number, type: SecondaryType): numb
   return 1 - 0.55 * u;
 }
 
-export function getIndicators(concentration: number): ModelIndicators {
-  const unfolded = getUnfoldedIndex(concentration);
+export function getTrappedFraction(peakConcentration: number): number {
+  const peakIndex = getUnfoldedIndex(peakConcentration);
+  return MAX_TRAPPED_FRACTION * smoothstep(IRREVERSIBLE_ONSET_INDEX, 1, peakIndex);
+}
+
+export function getIrreversibleThresholdConcentration(): number {
+  let low = 0;
+  let high = 8;
+  for (let iteration = 0; iteration < 32; iteration += 1) {
+    const middle = (low + high) / 2;
+    if (getUnfoldedIndex(middle) < IRREVERSIBLE_ONSET_INDEX) low = middle;
+    else high = middle;
+  }
+  return (low + high) / 2;
+}
+
+export function getIndicators(concentration: number, peakConcentration = concentration): ModelIndicators {
+  const reversible = getUnfoldedIndex(concentration);
+  const trapped = getTrappedFraction(peakConcentration);
+  const unfolded = 1 - (1 - reversible) * (1 - trapped);
   return {
     unfolded,
+    reversible,
+    trapped,
     native: 1 - unfolded,
     helixRetention: getSecondaryRetention(unfolded, 'helix'),
     sheetRetention: getSecondaryRetention(unfolded, 'sheet'),
@@ -48,21 +76,22 @@ export function getIndicators(concentration: number): ModelIndicators {
   };
 }
 
-export function getStructureState(concentration: number, unfolded: number, direction: 'up' | 'down'): string {
-  if (concentration <= 0.02) return 'Nativ gefaltet';
+export function getStructureState(concentration: number, unfolded: number, direction: 'up' | 'down', trapped = 0): string {
+  if (trapped > 0.06 && concentration < getIrreversibleThresholdConcentration()) return 'Kinetisch gefangen';
+  if (concentration <= 0.02 && trapped <= 0.02) return 'Nativ gefaltet';
   if (direction === 'down' && unfolded < 0.72) return unfolded < 0.13 ? 'Weitgehend renaturiert' : 'Renaturierend';
   if (unfolded < 0.13) return 'Nahezu nativ';
   if (unfolded < 0.72) return 'Teilweise entfaltet';
   return 'Stark entfaltet';
 }
 
-function deterministicAngle(sequence: number): number {
+function deterministicAngle(sequence: number, variant = 0): number {
   // Deterministic pseudo-random torsion: reproducible on every device and frame.
-  const raw = Math.sin(sequence * 12.9898 + 78.233) * 43758.5453;
+  const raw = Math.sin(sequence * 12.9898 + 78.233 + variant * 91.731) * 43758.5453;
   return (raw - Math.floor(raw)) * Math.PI * 2;
 }
 
-function buildCoilTrace(residues: ProteinResidue[]): Array<[number, number, number]> {
+function buildCoilTrace(residues: ProteinResidue[], variant = 0): Array<[number, number, number]> {
   const result = residues.map((residue) => [...residue.xyz] as [number, number, number]);
   if (residues.length < 4) return result;
 
@@ -80,7 +109,7 @@ function buildCoilTrace(residues: ProteinResidue[]): Array<[number, number, numb
     if (normal.lengthSq() < 1e-8) normal = new Vec3(1, 0, 0).cross(axis);
     normal.normalize();
     const binormal = axis.clone().cross(normal).normalize();
-    const torsion = deterministicAngle(residues[index].seq);
+    const torsion = deterministicAngle(residues[index].seq, variant);
     const radial = normal.multiplyScalar(Math.cos(torsion)).add(binormal.multiplyScalar(Math.sin(torsion)));
     const direction = axis.multiplyScalar(-cosAngle).add(radial.multiplyScalar(sinAngle)).normalize();
     const next = c.add(direction.multiplyScalar(bondLength));
@@ -217,25 +246,40 @@ function correctDistanceWithOffsets(
   points[b] = [pb[0] - ox, pb[1] - oy, pb[2] - oz];
 }
 
-export function morphCoordinates(model: ProteinModel, unfolded: number): Array<[number, number, number]> {
-  const amount = clamp01(unfolded);
-  if (amount < 1e-5) return model.residues.map((residue) => [...residue.xyz] as [number, number, number]);
+export function morphCoordinates(
+  model: ProteinModel,
+  reversibleUnfolded: number,
+  trappedFraction = 0,
+): Array<[number, number, number]> {
+  const reversible = clamp01(reversibleUnfolded);
+  const trapped = clamp01(trappedFraction);
+  const effective = 1 - (1 - reversible) * (1 - trapped);
+  if (effective < 1e-5) return model.residues.map((residue) => [...residue.xyz] as [number, number, number]);
 
-  const coil = buildCoilTrace(model.residues);
+  // Two reproducible coil ensembles distinguish the unfolding trajectory from
+  // the off-pathway, kinetically trapped conformation after a high-salt excursion.
+  const coilA = buildCoilTrace(model.residues, 0);
+  const coilB = buildCoilTrace(model.residues, 1);
+  const trappedShare = effective > 1e-8 ? clamp01(trapped / effective) : 0;
   const morphed = model.residues.map((residue, index): [number, number, number] => {
     const native = residue.xyz;
-    const target = coil[index];
-    const localAmount = clamp01(blendResidue(residue, amount));
+    const unfoldedTarget = coilA[index];
+    const trappedTarget = coilB[index];
+    const localAmount = residue.secondary === 'helix' || residue.secondary === 'sheet'
+      ? 1 - getSecondaryRetention(effective, residue.secondary)
+      : effective;
+    const reversibleWeight = localAmount * (1 - trappedShare);
+    const trappedWeight = localAmount * trappedShare;
+    const nativeWeight = 1 - localAmount;
     return [
-      blend(native[0], target[0], localAmount),
-      blend(native[1], target[1], localAmount),
-      blend(native[2], target[2], localAmount),
+      native[0] * nativeWeight + unfoldedTarget[0] * reversibleWeight + trappedTarget[0] * trappedWeight,
+      native[1] * nativeWeight + unfoldedTarget[1] * reversibleWeight + trappedTarget[1] * trappedWeight,
+      native[2] * nativeWeight + unfoldedTarget[2] * reversibleWeight + trappedTarget[2] * trappedWeight,
     ];
   });
 
   preserveBackboneAndDisulfides(morphed, model);
 
-  // Return a centred chain to keep camera framing stable during the transition.
   const center = morphed.reduce<[number, number, number]>(
     (sum, point) => [sum[0] + point[0] / morphed.length, sum[1] + point[1] / morphed.length, sum[2] + point[2] / morphed.length],
     [0, 0, 0],
