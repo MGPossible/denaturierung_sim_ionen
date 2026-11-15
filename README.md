@@ -1,6 +1,6 @@
 # MG Possible Lab – Proteindynamik mit Guanidiniumchlorid
 
-Version 1.2.0 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
+Version 1.2.1 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
 
 ## Wissenschaftliche Ausgangsbasis
 

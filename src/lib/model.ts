@@ -139,19 +139,6 @@ class Vec3 {
   normalize() { const length = Math.sqrt(this.lengthSq()) || 1; return this.multiplyScalar(1 / length); }
 }
 
-function blend(a: number, b: number, t: number) {
-  return a + (b - a) * t;
-}
-
-function blendResidue(residue: ProteinResidue, amount: number): number {
-  // The exact complement of the displayed class-retention index controls how
-  // far each native secondary-structure segment moves toward the coil trace.
-  if (residue.secondary === 'helix' || residue.secondary === 'sheet') {
-    return 1 - getSecondaryRetention(amount, residue.secondary);
-  }
-  return amount;
-}
-
 function correctDistance(
   points: Array<[number, number, number]>,
   a: number,
