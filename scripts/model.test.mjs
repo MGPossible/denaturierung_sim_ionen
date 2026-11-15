@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getConcentrationCurve, getIndicators, getSecondaryRetention, morphCoordinates } from '../src/lib/model.ts';
+import { getConcentrationCurve, getIndicators, getIrreversibleThresholdConcentration, getSecondaryRetention, getTrappedFraction, morphCoordinates } from '../src/lib/model.ts';
 
 function fixture() {
   const xy = [
@@ -72,4 +72,26 @@ test('unfolded teaching conformation remains finite and keeps chain/crosslink di
     const nativeSgDistance = Math.hypot(sulfurA.xyz[0] - sulfurB.xyz[0], sulfurA.xyz[1] - sulfurB.xyz[1], sulfurA.xyz[2] - sulfurB.xyz[2]);
     assert.ok(Math.abs(sgDistance - nativeSgDistance) < 0.2);
   }
+});
+
+
+test('high-salt excursion creates a persistent trapped fraction and hysteresis on dilution', () => {
+  const threshold = getIrreversibleThresholdConcentration();
+  assert.ok(threshold > 6 && threshold < 7);
+  assert.equal(getTrappedFraction(threshold - 0.2), 0);
+  assert.ok(getTrappedFraction(8) > 0.4);
+  const afterDilution = getIndicators(0, 8);
+  assert.ok(afterDilution.unfolded > 0.4);
+  assert.ok(afterDilution.native < 0.6);
+  assert.equal(getIndicators(0, 0).unfolded, 0);
+});
+
+test('kinetically trapped conformation is not identical to the native PDB trace', () => {
+  const model = fixture();
+  const native = morphCoordinates(model, 0, 0);
+  const trapped = morphCoordinates(model, 0, 0.42);
+  const displacement = native.reduce((sum, point, index) => sum + Math.hypot(
+    point[0] - trapped[index][0], point[1] - trapped[index][1], point[2] - trapped[index][2],
+  ), 0);
+  assert.ok(displacement > 20, `Expected a visibly different trapped conformation, got displacement ${displacement}`);
 });
