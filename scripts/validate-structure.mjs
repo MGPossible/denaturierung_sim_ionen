@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { parseSsbondRecord, validateSgDistance } from './disulfide-validation.mjs';
 
 const path = new URL('../public/data/1LYZ.pdb', import.meta.url);
 const pdb = await readFile(path, 'utf8');
@@ -16,11 +17,10 @@ if (ca.length !== 129 || residueNumbers.size !== 129) {
   throw new Error(`Expected 129 Cα positions in chain A; found ${ca.length} atoms / ${residueNumbers.size} unique residues.`);
 }
 if (ssbonds.length !== 4) throw new Error(`Expected four native SSBOND records; found ${ssbonds.length}.`);
-const disulfidePairs = ssbonds.map((line) => {
-  const a = Number.parseInt(line.slice(17, 21).trim(), 10);
-  const b = Number.parseInt(line.slice(31, 35).trim(), 10);
-  return { a, b, key: `${Math.min(a, b)}-${Math.max(a, b)}` };
-}).sort((a, b) => a.key.localeCompare(b.key));
+const disulfidePairs = ssbonds.map(parseSsbondRecord).sort((a, b) => a.key.localeCompare(b.key));
+if (disulfidePairs.some((pair) => pair.chainA !== 'A' || pair.chainB !== 'A')) {
+  throw new Error('All four native 1LYZ disulfide bonds must belong to chain A.');
+}
 const expectedPairs = ['30-115', '6-127', '64-80', '76-94'];
 if (expectedPairs.some((pair, index) => disulfidePairs[index]?.key !== pair)) {
   throw new Error(`Unexpected 1LYZ disulfide connectivity. Expected ${expectedPairs.join(', ')}; found ${disulfidePairs.map((pair) => pair.key).join(', ')}.`);
@@ -33,6 +33,7 @@ for (const line of chainA) {
   const xyz = [30, 38, 46].map((start) => Number.parseFloat(line.slice(start, start + 8)));
   if (xyz.every(Number.isFinite)) atomCoordinates.set(`${residue}:${atomName}`, xyz);
 }
+const validatedDisulfides = [];
 for (const pair of disulfidePairs) {
   for (const residue of [pair.a, pair.b]) {
     if (!atomCoordinates.has(`${residue}:CB`) || !atomCoordinates.has(`${residue}:SG`)) {
@@ -42,10 +43,11 @@ for (const pair of disulfidePairs) {
   const sulfurA = atomCoordinates.get(`${pair.a}:SG`);
   const sulfurB = atomCoordinates.get(`${pair.b}:SG`);
   const sgDistance = Math.hypot(...sulfurA.map((value, index) => value - sulfurB[index]));
-  if (sgDistance < 1.7 || sgDistance > 2.3) {
-    throw new Error(`Unexpected Sγ–Sγ distance for Cys ${pair.a}–${pair.b}: ${sgDistance.toFixed(2)} Å.`);
-  }
+  // The deposited 1LYZ SSBOND distances are not all close to the idealised
+  // ~2.0 Å value. Compare coordinates to the entry's own SSBOND annotation
+  // instead of rejecting the authentic experimental model at an arbitrary cutoff.
+  validatedDisulfides.push(validateSgDistance(pair, sgDistance));
 }
 if (badCoordinates.length) throw new Error(`Found ${badCoordinates.length} Cα records with invalid coordinates.`);
 
-console.log(`Validated experimental PDB 1LYZ: ${atoms.length} ATOM records; 129 Cα positions in chain A; native disulfides ${expectedPairs.join(', ')} with Cβ/Sγ coordinates.`);
+console.log(`Validated experimental PDB 1LYZ: ${atoms.length} ATOM records; 129 Cα positions in chain A; native disulfides ${validatedDisulfides.map(({ a, b, measuredDistance }) => `Cys ${a}–${b} ${measuredDistance.toFixed(2)} Å`).join(', ')}. Sγ distances match the deposited SSBOND annotations.`);

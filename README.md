@@ -1,6 +1,6 @@
 # MG Possible Lab – Proteindynamik mit Guanidiniumchlorid
 
-Version 1.3.0 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
+Version 1.3.1 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
 
 ## Wissenschaftliche Ausgangsbasis
 
@@ -10,6 +10,10 @@ Version 1.3.0 · Interaktive 3D-Websimulation für den naturwissenschaftlichen U
 - **Denaturierungsmittel:** Guanidiniumchlorid (GdmCl/GdnHCl), nicht Natriumchlorid (NaCl).
 
 Die PDB-Startstruktur ist experimentell. Die Zwischenkonformationen, Konzentrationskurve, Ionendarstellung und die Modellgrenze für kinetische Trappung sind didaktische Modelle, keine experimentellen Messdaten und keine Molekulardynamik.
+
+**Validierung der Disulfidbrücken (Hotfix 1.3.1):** Die Prüfung vergleicht die berechnete Sγ–Sγ-Distanz mit der Distanz, die im jeweiligen offiziellen `SSBOND`-Datensatz eingetragen ist. Es wird kein pauschaler idealisierter Maximalwert von 2,30 Å erzwungen. Der offizielle 1LYZ-Datensatz enthält unter anderem für Cys 30–115 eine Distanz von 2,42 Å. Die echten experimentellen Koordinaten bleiben unverändert; inkonsistente Koordinaten/Annotationen werden weiterhin abgewiesen.
+
+**Validierung der Disulfidbrücken:** Die vier Verknüpfungen werden anhand der `SSBOND`-Einträge und der experimentellen Sγ-Koordinaten geprüft. Es wird bewusst kein pauschaler idealer Sγ–Sγ-Grenzwert (z. B. maximal 2,3 Å) erzwungen: Der offizielle historische 1LYZ-Datensatz weist für Cys 30–115 eine annotierte Distanz von 2,42 Å aus. Stattdessen muss die aus den Koordinaten berechnete Distanz mit der im selben PDB-Eintrag deklarierten `SSBOND`-Distanz übereinstimmen. So wird die echte experimentelle Struktur validiert, nicht gegen eine idealisierte Geometrie ausgetauscht.
 
 ## Was die Simulation zeigt
 
@@ -67,6 +71,7 @@ Die automatisierten Node-Tests prüfen unter anderem:
 - pfadabhängige kinetische Trappung und eine nicht-native Rückfaltungsstruktur,
 - Erkennung von Seitenketten-Ladungsgruppen, der vier nativen Disulfidverknüpfungen und geometrisch gefilterten Backbone-H-Brücken im PDB-Parser.
 - Prüfung der 1LYZ-Disulfid-Paarung (Cys 6–127, 30–115, 64–80 und 76–94) sowie Darstellung über die experimentellen Cα-, Cβ- und Sγ-Koordinaten.
+- Prüfung, dass die aus Sγ-Koordinaten berechneten Disulfidabstände mit den offiziellen `SSBOND`-Distanzangaben übereinstimmen; ein idealisierter Universal-Grenzwert wird nicht erzwungen.
 
 ## Bedienung
 
