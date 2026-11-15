@@ -166,12 +166,11 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <div className="brand-mark"><span>MG</span></div>
-          <div><div className="brand-name">MG Possible Lab</div><div className="brand-subtitle">Protein Dynamik</div></div>
+          <div className="brand-mark"><span className="brand-monogram">M<span>G</span></span></div>
+          <div><div className="brand-name">MG Possible Lab</div><div className="brand-subtitle">Proteindynamik</div></div>
         </div>
         <div className="topbar-right">
           <span className="topbar-chip"><i /> Interaktives Experiment</span>
-          <span className="topbar-model">PDB <strong>1LYZ</strong></span>
         </div>
       </header>
 
@@ -196,7 +195,6 @@ export default function App() {
           <article className="viewer-card panel">
             <div className="panel-heading">
               <div><div className="panel-kicker">MOLEKÜLANSICHT</div><h2>Lysozym · 3D-Struktur</h2></div>
-              <div className="structure-id"><span className="live-dot" /> 1LYZ / CHAIN A</div>
             </div>
             <ProteinViewer
               model={model}
@@ -213,19 +211,16 @@ export default function App() {
               <span><i className="legend-dot helix" /> α-Helix</span>
               <span><i className="legend-dot sheet" /> β-Faltblatt</span>
               <span><i className="legend-dot loop" /> Schleife</span>
-              <span><i className="legend-dot disulfide" /> Disulfidbrücke</span>
-              <span><i className="legend-dot site-pos" /> Seitenkette +</span>
-              <span><i className="legend-dot site-neg" /> Seitenkette −</span>
+              <span><i className="legend-dot disulfide" /> Disulfidbrücken · Cys 6–127, 30–115, 64–80, 76–94</span>
               <span><i className="legend-dot ion-gdm" /> Gdm⁺</span>
               <span><i className="legend-dot ion-cl" /> Cl⁻</span>
-              <span><i className="legend-line hbond" /> H-Brücke</span>
-              <span><i className="legend-line salt" /> Salzbrücke</span>
+              <span><i className="legend-line hbond" /> Backbone-H-Brücke</span>
             </div>
             <div className="viewer-options" aria-label="Einblendungen der Proteinstruktur">
               <label className="switch-label"><input type="checkbox" checked={showHelices} onChange={(event) => setShowHelices(event.target.checked)} /> Helices</label>
               <label className="switch-label"><input type="checkbox" checked={showSheets} onChange={(event) => setShowSheets(event.target.checked)} /> β-Faltblätter</label>
               <label className="switch-label"><input type="checkbox" checked={showDisulfides} onChange={(event) => setShowDisulfides(event.target.checked)} /> Disulfidbrücken</label>
-              <label className="switch-label"><input type="checkbox" checked={showIonInteractions} onChange={(event) => setShowIonInteractions(event.target.checked)} /> Ionen & Kontakte</label>
+              <label className="switch-label"><input type="checkbox" checked={showIonInteractions} onChange={(event) => setShowIonInteractions(event.target.checked)} /> GdmCl-Ionen & H-Brücken</label>
               <button className={`compare-button ${compare ? 'active' : ''}`} type="button" aria-pressed={compare} onClick={() => setCompare((value) => !value)}>{compare ? 'Referenz ausblenden' : 'Native Referenz einblenden'}</button>
             </div>
             {(!model || structureError) && (
@@ -331,7 +326,7 @@ export default function App() {
                 <p>Eine publizierte Renaturierungsstudie mit GdmCl untersuchte reduziertes Lysozym. Ihre Ausbeuten sind nicht direkt auf dieses nicht reduzierte Modell übertragbar.</p>
               </InfoSection>
               <InfoSection title="Was zeigt das Modell – und was nicht?">
-                <p>Die native Startkonformation stammt aus der experimentellen Röntgenstruktur 1LYZ. Aus den vollständigen PDB-Atomkoordinaten werden ausgewählte Rückgrat-Wasserstoffbrücken (N...O) sowie Kontakte zwischen entgegengesetzt geladenen Seitenketten abgeleitet. Diese Kontaktlinien verblassen mit zunehmender GdmCl-Konzentration. Gdm⁺-Teilchen erscheinen schematisch nahe ausgewählter saurer Seitenketten und Carbonylgruppen; Cl⁻-Teilchen werden im umgebenden Lösungsmittelbereich gezeigt.</p>
+                <p>Die native Startkonformation stammt aus der experimentellen Röntgenstruktur 1LYZ. Aus den PDB-Atomkoordinaten werden ausgewählte Backbone-Wasserstoffbrücken zwischen Carbonyl-O und Amid-N sowie die vier nativen Disulfidverknüpfungen an ihren tatsächlichen Cystein-Positionen abgeleitet. Die Wasserstoffbrücken-Kontakte verblassen mit zunehmender GdmCl-Konzentration; die kovalenten Disulfidbrücken bleiben im nicht reduzierten Modell erhalten. Gdm⁺-Teilchen erscheinen schematisch nahe ausgewählter saurer Seitenketten und Carbonylgruppen; Cl⁻-Teilchen werden im umgebenden Lösungsmittelbereich gezeigt.</p>
                 <p>Die Ionenteilchen sind keine zeitaufgelöste Ionenverteilung. Der Kontaktverlust, die Entfaltungs-Zwischenzustände und die kinetische Trappung sind didaktische Modellierungen; es wird keine Molekulardynamik berechnet und keine atomare Kraftfeld-Minimierung durchgeführt. Die native Sekundärstruktur stammt aus 1LYZ, alle Balken sind normalisierte Modellindizes und keine experimentell gemessenen Prozentwerte.</p>
               </InfoSection>
             </div>
@@ -341,6 +336,8 @@ export default function App() {
             <h3>Quellen & Referenzen</h3>
             <ol>
               <li><a href="https://www.rcsb.org/structure/1LYZ" target="_blank" rel="noreferrer">RCSB Protein Data Bank · 1LYZ</a><span>Native Kristallstruktur · 2,00 Å</span></li>
+              <li><a href="https://www.rcsb.org/sequence/1LYZ" target="_blank" rel="noreferrer">RCSB · 1LYZ Sequenz und Annotationen</a><span>Kette A · 129 Aminosäuren</span></li>
+              <li><a href="https://pubmed.ncbi.nlm.nih.gov/11034323/" target="_blank" rel="noreferrer">Native Disulfid-Konnektivität von Hühnereiweiß-Lysozym</a><span>FEBS Letters · 2000 · Cys 6–127, 30–115, 64–80 und 76–94</span></li>
               <li><a href="https://pubs.acs.org/doi/10.1021/acsomega.8b01911" target="_blank" rel="noreferrer">Contrasting Effects of Guanidinium Chloride and Urea on the Activity and Unfolding of Lysozyme</a><span>ACS Omega · 2018</span></li>
               <li><a href="https://doi.org/10.1021/ct3002267" target="_blank" rel="noreferrer">Counterion Effects on the Denaturing Activity of Guanidinium Cation to Protein</a><span>J. Chem. Theory Comput. · 2012 · Mechanistische Einordnung, nicht 1LYZ-spezifisch</span></li>
               <li><a href="https://pubmed.ncbi.nlm.nih.gov/12040421/" target="_blank" rel="noreferrer">Effect of Guanidinium Chloride Concentration on the Renaturation of Denatured Lysozyme</a><span>Acta Biochim. Biophys. Sin. · 2001</span></li>

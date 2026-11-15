@@ -25,10 +25,8 @@ const COLORS: Record<SecondaryType, number> = {
 const ION_COLORS = {
   guanidinium: 0xff8c68,
   chloride: 0x72bfff,
-  positiveSite: 0x72c6ff,
-  negativeSite: 0xff7e88,
-  hydrogenBond: 0x8de2d6,
-  ionicContact: 0xc7a8ff,
+  hydrogenBond: 0x9ce9dd,
+  disulfide: 0xa8efa0,
 };
 
 function disposeGroup(group: THREE.Group) {
@@ -95,22 +93,6 @@ function runsOfType(residues: ProteinResidue[], type: SecondaryType): ProteinRes
   return runs;
 }
 
-function addDashedContact(group: THREE.Group, start: THREE.Vector3, end: THREE.Vector3, color: number, opacity: number) {
-  if (opacity < 0.045) return;
-  const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
-  const material = new THREE.LineDashedMaterial({
-    color,
-    dashSize: 0.075,
-    gapSize: 0.055,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-  });
-  const line = new THREE.Line(geometry, material);
-  line.computeLineDistances();
-  group.add(line);
-}
-
 function addIonSphere(group: THREE.Group, position: THREE.Vector3, color: number, radius: number, emissive: number) {
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(radius, 12, 10),
@@ -124,6 +106,22 @@ function addIonSphere(group: THREE.Group, position: THREE.Vector3, color: number
   );
   mesh.position.copy(position);
   group.add(mesh);
+}
+
+function addCovalentSegment(group: THREE.Group, start: THREE.Vector3, end: THREE.Vector3, color: number, radius: number, opacity = 1) {
+  if (start.distanceToSquared(end) < 1e-6) return;
+  const curve = new THREE.LineCurve3(start, end);
+  const geometry = new THREE.TubeGeometry(curve, 6, radius, 6, false);
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.16,
+    roughness: 0.42,
+    transparent: opacity < 1,
+    opacity,
+    depthWrite: opacity > 0.85,
+  });
+  group.add(new THREE.Mesh(geometry, material));
 }
 
 function renderProtein(
@@ -145,10 +143,8 @@ function renderProtein(
   const coords = morphedPositions.map(([x, y, z]) => new THREE.Vector3((x - centroid[0]) * 0.15, (y - centroid[1]) * 0.15, (z - centroid[2]) * 0.15));
   const coordBySeq = new Map<number, THREE.Vector3>();
   const deltaBySeq = new Map<number, Vec3Tuple>();
-  const indexBySeq = new Map<number, number>();
   model.residues.forEach((residue, index) => {
     coordBySeq.set(residue.seq, coords[index]);
-    indexBySeq.set(residue.seq, index);
     deltaBySeq.set(residue.seq, [
       morphedPositions[index][0] - residue.xyz[0],
       morphedPositions[index][1] - residue.xyz[1],
@@ -207,87 +203,133 @@ function renderProtein(
     for (const bond of model.disulfides) {
       const a = sulfurBySeq.get(bond.a);
       const b = sulfurBySeq.get(bond.b);
-      const ia = indexBySeq.get(bond.a);
-      const ib = indexBySeq.get(bond.b);
-      const nativeA = model.residues[ia ?? -1];
-      const nativeB = model.residues[ib ?? -1];
-      if (!a || !b || !nativeA || !nativeB || ia === undefined || ib === undefined) continue;
-      const deltaA = morphedPositions[ia].map((value, axis) => value - nativeA.xyz[axis]) as Vec3Tuple;
-      const deltaB = morphedPositions[ib].map((value, axis) => value - nativeB.xyz[axis]) as Vec3Tuple;
-      const start = new THREE.Vector3((a.xyz[0] + deltaA[0] - centroid[0]) * 0.15, (a.xyz[1] + deltaA[1] - centroid[1]) * 0.15, (a.xyz[2] + deltaA[2] - centroid[2]) * 0.15);
-      const end = new THREE.Vector3((b.xyz[0] + deltaB[0] - centroid[0]) * 0.15, (b.xyz[1] + deltaB[1] - centroid[1]) * 0.15, (b.xyz[2] + deltaB[2] - centroid[2]) * 0.15);
-      const bondMaterial = new THREE.MeshStandardMaterial({ color: 0xc4a5ff, emissive: 0x6949a8, emissiveIntensity: 0.72, metalness: 0.22, roughness: 0.32, transparent: opacity < 1, opacity });
-      group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(start, end), 20, 0.055, 8, false), bondMaterial));
-      addIonSphere(group, start, 0xe0d1ff, 0.075, 0x6d4db2);
-      addIonSphere(group, end, 0xe0d1ff, 0.075, 0x6d4db2);
+      const caA = coordBySeq.get(bond.a);
+      const caB = coordBySeq.get(bond.b);
+      if (!a || !b || !caA || !caB) continue;
+
+      // Display the actual PDB side-chain path CA -> CB -> SG, followed by the
+      // covalent S-S link. The residue identities are fixed by the SSBOND
+      // records: 6-127, 30-115, 64-80 and 76-94 in native hen lysozyme.
+      const sgA = toScene(a.xyz, bond.a);
+      const sgB = toScene(b.xyz, bond.b);
+      const cbA = a.betaCarbon ? toScene(a.betaCarbon, bond.a) : null;
+      const cbB = b.betaCarbon ? toScene(b.betaCarbon, bond.b) : null;
+
+      if (cbA) {
+        addCovalentSegment(group, caA, cbA, 0xaebdc2, 0.018, opacity);
+        addCovalentSegment(group, cbA, sgA, 0xaebdc2, 0.018, opacity);
+      } else {
+        addCovalentSegment(group, caA, sgA, 0xaebdc2, 0.018, opacity);
+      }
+      if (cbB) {
+        addCovalentSegment(group, caB, cbB, 0xaebdc2, 0.018, opacity);
+        addCovalentSegment(group, cbB, sgB, 0xaebdc2, 0.018, opacity);
+      } else {
+        addCovalentSegment(group, caB, sgB, 0xaebdc2, 0.018, opacity);
+      }
+
+      // Sulfur atoms and S-S bond use a distinct vivid green, separated from
+      // the yellow β-sheet colour. Coordinates are PDB SG positions, not a
+      // manually positioned cross-link overlay.
+      addCovalentSegment(group, sgA, sgB, ION_COLORS.disulfide, 0.034, opacity);
+      addIonSphere(group, sgA, 0xd8ffad, 0.048, 0x457a39);
+      addIonSphere(group, sgB, 0xd8ffad, 0.048, 0x457a39);
     }
   }
 
   if (options.ions) {
     const contactOpacity = opacity * Math.max(0.025, 0.72 * (1 - effectiveAmount));
-    for (const bond of model.hydrogenBonds.slice(0, 38)) {
-      addDashedContact(
-        group,
-        toScene(bond.acceptorXYZ, bond.acceptor),
-        toScene(bond.donorXYZ, bond.donor),
-        ION_COLORS.hydrogenBond,
-        contactOpacity * (bond.kind === 'helix' ? 0.95 : 0.78),
-      );
-    }
-    for (const contact of model.ionicContacts.slice(0, 18)) {
-      addDashedContact(
-        group,
-        toScene(contact.positiveXYZ, contact.positiveResidue),
-        toScene(contact.negativeXYZ, contact.negativeResidue),
-        ION_COLORS.ionicContact,
-        contactOpacity * 0.9,
-      );
+    const anchorVertices: THREE.Vector3[] = [];
+    const dashedVertices: THREE.Vector3[] = [];
+
+    // Show more structurally screened backbone contacts than the earlier
+    // 38-line cap. Each O/N endpoint gets a short connector to its own C-alpha
+    // trace so that hydrogen-bond marks visibly belong to the polypeptide.
+    for (const bond of model.hydrogenBonds.slice(0, 72)) {
+      const acceptor = toScene(bond.acceptorXYZ, bond.acceptor);
+      const donor = toScene(bond.donorXYZ, bond.donor);
+      const acceptorCa = coordBySeq.get(bond.acceptor);
+      const donorCa = coordBySeq.get(bond.donor);
+      if (acceptorCa) anchorVertices.push(acceptorCa, acceptor);
+      if (donorCa) anchorVertices.push(donorCa, donor);
+
+      const vector = donor.clone().sub(acceptor);
+      const length = vector.length();
+      if (length < 0.015) continue;
+      vector.normalize();
+      const dashLength = 0.055;
+      const gapLength = 0.035;
+      for (let offset = 0; offset < length; offset += dashLength + gapLength) {
+        const from = Math.min(length, offset);
+        const to = Math.min(length, offset + dashLength);
+        if (to - from < 0.012) continue;
+        dashedVertices.push(
+          acceptor.clone().addScaledVector(vector, from),
+          acceptor.clone().addScaledVector(vector, to),
+        );
+      }
     }
 
-    // Charged side-chain markers are drawn only for residues participating in
-    // a parsed native salt bridge, avoiding a dense cloud of charge markers.
-    const contactResidues = new Set<number>();
-    model.ionicContacts.slice(0, 18).forEach((contact) => {
-      contactResidues.add(contact.positiveResidue);
-      contactResidues.add(contact.negativeResidue);
-    });
-    for (const site of model.chargedSites) {
-      if (!contactResidues.has(site.residue)) continue;
-      const position = toScene(site.xyz, site.residue);
-      addIonSphere(
-        group,
-        position,
-        site.charge === 'positive' ? ION_COLORS.positiveSite : ION_COLORS.negativeSite,
-        0.065,
-        0x17222a,
-      );
+    if (anchorVertices.length) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(anchorVertices);
+      group.add(new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color: 0xa7c2c5, transparent: true, opacity: contactOpacity * 0.58, depthWrite: false }),
+      ));
+    }
+    if (dashedVertices.length) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(dashedVertices);
+      group.add(new THREE.LineSegments(
+        geometry,
+        new THREE.LineBasicMaterial({ color: ION_COLORS.hydrogenBond, transparent: true, opacity: contactOpacity, depthWrite: false }),
+      ));
     }
 
     // Guanidinium cations are schematically placed near acidic side chains and
-    // selected backbone carbonyl oxygens. Chloride is shown in the surrounding
-    // solvent shell, rather than as a second strongly protein-bound species.
+    // selected backbone carbonyl oxygens. Chloride is shown in the solvent shell.
     const amount = THREE.MathUtils.clamp(concentration / 8, 0, 1);
     const targets = model.gdmTargets;
-    const gdmCount = Math.min(18, Math.round(amount * 18));
+    const maximumGdmIons = 30;
+    const activeGdmCount = amount * maximumGdmIons;
+    const gdmCount = Math.ceil(activeGdmCount);
     const sceneCenter = new THREE.Vector3(0, 0, 0);
     if (gdmCount > 0 && targets.length > 0) {
       const ionGeometry = new THREE.SphereGeometry(0.115, 14, 12);
       for (let i = 0; i < gdmCount; i += 1) {
-        const target = targets[Math.floor(((i + 0.5) * targets.length) / gdmCount)];
+        const activation = THREE.MathUtils.clamp(activeGdmCount - i, 0, 1);
+        const target = targets[Math.floor(((i + 0.5) * targets.length) / maximumGdmIons)];
         const anchor = toScene(target.xyz, target.residue);
-        const outward = anchor.clone().sub(sceneCenter);
+        const residueCa = coordBySeq.get(target.residue);
+        // Enter from the direction extending the actual side-chain/carbonyl
+        // vector. New ions approach the PDB contact site smoothly as GdmCl rises.
+        const outward = anchor.clone().sub(residueCa ?? sceneCenter);
+        if (outward.lengthSq() < 0.0001) outward.copy(anchor).sub(sceneCenter);
         if (outward.lengthSq() < 0.0001) outward.set(Math.sin(i * 1.7), Math.cos(i * 1.3), 0.7);
         outward.normalize();
-        const offset = (2.35 - amount * 0.48) * 0.15;
+        const startOffset = 0.72;
+        const boundOffset = 0.22;
+        const offset = THREE.MathUtils.lerp(startOffset, boundOffset, activation);
         const ionPosition = anchor.clone().addScaledVector(outward, offset);
-        const mesh = new THREE.Mesh(
-          ionGeometry,
-          new THREE.MeshStandardMaterial({ color: ION_COLORS.guanidinium, emissive: 0x872e25, emissiveIntensity: 0.55, roughness: 0.28 }),
-        );
+        const material = new THREE.MeshStandardMaterial({
+          color: ION_COLORS.guanidinium,
+          emissive: 0x872e25,
+          emissiveIntensity: 0.55,
+          roughness: 0.28,
+          transparent: activation < 1 || opacity < 1,
+          opacity: opacity * activation,
+          depthWrite: activation > 0.9 && opacity > 0.85,
+        });
+        const mesh = new THREE.Mesh(ionGeometry, material);
         mesh.position.copy(ionPosition);
+        mesh.scale.setScalar(0.28 + 0.72 * activation);
         group.add(mesh);
         const connectorGeometry = new THREE.BufferGeometry().setFromPoints([anchor, ionPosition]);
-        group.add(new THREE.Line(connectorGeometry, new THREE.LineBasicMaterial({ color: ION_COLORS.guanidinium, transparent: true, opacity: opacity * 0.62 })));
+        group.add(new THREE.Line(connectorGeometry, new THREE.LineBasicMaterial({
+          color: ION_COLORS.guanidinium,
+          transparent: true,
+          opacity: opacity * 0.5 * activation,
+          depthWrite: false,
+        })));
       }
     }
 
@@ -311,6 +353,7 @@ function renderProtein(
       }
     }
   }
+
 }
 
 export function ProteinViewer({ model, unfolded, trapped, concentration, compare, showHelices, showSheets, showDisulfides, showIonInteractions }: Props) {

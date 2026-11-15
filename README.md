@@ -1,6 +1,6 @@
 # MG Possible Lab – Proteindynamik mit Guanidiniumchlorid
 
-Version 1.2.1 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
+Version 1.3.0 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
 
 ## Wissenschaftliche Ausgangsbasis
 
@@ -16,9 +16,9 @@ Die PDB-Startstruktur ist experimentell. Die Zwischenkonformationen, Konzentrati
 1. Ein stufenloser Regler steuert GdmCl zwischen 0 und 8 mol/L.
 2. Das native Cα-Rückgrat wird kontinuierlich in Richtung einer reproduzierbar erzeugten ungeordneten Polymerkonformation verformt.
 3. α-Helix- und β-Faltblatt-Geometrien verlieren schrittweise ihre lokale Ordnung. Die Strukturindikatoren verwenden dieselben Retentionsfunktionen wie die Visualisierung.
-4. Aus den experimentellen PDB-Atomkoordinaten werden ausgewählte Backbone-Kontakte abgeleitet: α-helikale O...N-Kontakte (i zu i+4), nahe O...N-Kontakte in β-Strangbereichen sowie nahe Kontakte zwischen entgegengesetzt geladenen Seitenketten. Diese werden als gestrichelte Linien angezeigt und verblassen mit steigender Entfaltung.
-5. Guanidinium-Kationen (Gdm⁺) werden schematisch nahe sauren Seitenketten und ausgewählten Carbonylgruppen eingeblendet. Chlorid-Anionen (Cl⁻) erscheinen als Teilchen im umgebenden Lösungsmittelbereich. Die Ionenpositionen sind eine didaktische Veranschaulichung, keine berechnete Verteilung.
-6. Die PDB-basierten H-Brücken- und Salzbrückenlinien sind geometrisch abgeleitete Kontakt-Hinweise. Sie ersetzen keine DSSP-/Kraftfeld-Auswertung und berücksichtigen keine expliziten Wasserstoffatome.
+4. Aus den experimentellen PDB-Atomkoordinaten werden geometrisch gefilterte Backbone-H-Brücken zwischen Carbonyl-O und Amid-N abgeleitet. Ihre Endpunkte sind zusätzlich mit dem jeweiligen Cα-Rückgrat verbunden; die Kontaktlinien verblassen mit steigender Entfaltung.
+5. Bis zu 30 Guanidinium-Kationen (Gdm⁺) werden schematisch an ausgewählten sauren Seitenketten und Carbonylgruppen eingeblendet. Sie nähern sich bei steigender Konzentration schrittweise entlang der lokalen Seitenketten-/Carbonylrichtung. Chlorid-Anionen (Cl⁻) erscheinen im umgebenden Lösungsmittelbereich. Die Ionenpositionen sind eine didaktische Veranschaulichung, keine berechnete Verteilung.
+6. Die PDB-basierten Backbone-H-Brücken sind geometrisch abgeleitete Kontakt-Hinweise zwischen experimentell positionierten O- und N-Atomen. Sie ersetzen keine DSSP-/Kraftfeld-Auswertung und berücksichtigen keine expliziten Wasserstoffatome. Die vier nativen Disulfidbrücken werden anhand der PDB-SG- und CB-Koordinaten an ihren Cystein-Resten dargestellt (Cys 6–127, 30–115, 64–80 und 76–94).
 
 ## Renaturierung und kinetische Trappung
 
@@ -65,7 +65,8 @@ Die automatisierten Node-Tests prüfen unter anderem:
 - Kopplung von Sekundärstruktur-Indizes und Geometriemodell,
 - Erhaltung der Cα-Kettenabstände sowie Disulfid-Cα-/Sγ-Abstände im Lehrmodell,
 - pfadabhängige kinetische Trappung und eine nicht-native Rückfaltungsstruktur,
-- Erkennung von Seitenketten-Ladungsgruppen, Salzbrücken-Kontakten und geometrischen H-Brücken-Hinweisen im PDB-Parser.
+- Erkennung von Seitenketten-Ladungsgruppen, der vier nativen Disulfidverknüpfungen und geometrisch gefilterten Backbone-H-Brücken im PDB-Parser.
+- Prüfung der 1LYZ-Disulfid-Paarung (Cys 6–127, 30–115, 64–80 und 76–94) sowie Darstellung über die experimentellen Cα-, Cβ- und Sγ-Koordinaten.
 
 ## Bedienung
 
@@ -74,7 +75,7 @@ Die automatisierten Node-Tests prüfen unter anderem:
 - Nach Überschreiten der Modellgrenze bleibt ein kinetisch gefangener Anteil zurück; **Reset** startet ein neues Experiment.
 - 3D-Navigation: Ziehen zum Rotieren, Pinch/Mausrad zum Zoomen, Zwei-Finger-Geste bzw. rechte Maustaste zum Verschieben.
 - Native Referenz: transparente Überlagerung der nativen 1LYZ-Konformation.
-- Ein-/Ausblenden von Helices, β-Faltblättern, Disulfidbrücken sowie Ionen/Kontaktlinien.
+- Ein-/Ausblenden von Helices, β-Faltblättern, Disulfidbrücken sowie GdmCl-Ionen und Backbone-H-Brücken.
 - Geschwindigkeitsauswahl, Kamera-Reset, dynamische Modellkurve und normalisierte Modellindikatoren.
 
 ## GitHub Pages
@@ -86,6 +87,7 @@ Unter **Settings → Pages → Build and deployment** muss als Quelle **GitHub A
 ## Quellen
 
 - RCSB PDB 1LYZ: <https://www.rcsb.org/structure/1LYZ>
+- Native Disulfid-Konnektivität des Hühnereiweiß-Lysozyms: <https://pubmed.ncbi.nlm.nih.gov/11034323/>
 - Contrasting Effects of Guanidinium Chloride and Urea on the Activity and Unfolding of Lysozyme, ACS Omega (2018): <https://doi.org/10.1021/acsomega.8b01911>
 - Counterion Effects on the Denaturing Activity of Guanidinium Cation to Protein, J. Chem. Theory Comput. (2012): <https://doi.org/10.1021/ct3002267>
 - Effect of Guanidinium Chloride Concentration on the Renaturation of Denatured Lysozyme (2001): <https://pubmed.ncbi.nlm.nih.gov/12040421/>

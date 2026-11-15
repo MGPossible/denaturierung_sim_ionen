@@ -13,6 +13,7 @@ export interface ProteinResidue {
 export interface SulfurAtom {
   residue: number;
   xyz: Vec3Tuple;
+  betaCarbon?: Vec3Tuple;
 }
 
 export interface DisulfideBond {
@@ -38,7 +39,7 @@ export interface HydrogenBond {
   donor: number;
   acceptorXYZ: Vec3Tuple;
   donorXYZ: Vec3Tuple;
-  kind: 'helix' | 'sheet';
+  kind: 'helix' | 'sheet' | 'turn';
   distance: number;
 }
 
@@ -75,6 +76,9 @@ type ResidueAtoms = {
   residueName: string;
   charged: Map<string, Vec3Tuple>;
   nitrogen?: Vec3Tuple;
+  alphaCarbon?: Vec3Tuple;
+  betaCarbon?: Vec3Tuple;
+  carbonylCarbon?: Vec3Tuple;
   carbonylOxygen?: Vec3Tuple;
 };
 
@@ -106,42 +110,118 @@ function minimumDistance(a: Vec3Tuple[], b: Vec3Tuple[]): number {
   return result;
 }
 
+function subtract(a: Vec3Tuple, b: Vec3Tuple): Vec3Tuple {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function normalize(vector: Vec3Tuple): Vec3Tuple {
+  const length = Math.hypot(vector[0], vector[1], vector[2]) || 1;
+  return [vector[0] / length, vector[1] / length, vector[2] / length];
+}
+
+function dot(a: Vec3Tuple, b: Vec3Tuple): number {
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
 function buildHydrogenBonds(residues: ProteinResidue[], atomsByResidue: Map<number, ResidueAtoms>): HydrogenBond[] {
   const bySeq = new Map<number, ProteinResidue>(
     residues.map((residue): [number, ProteinResidue] => [residue.seq, residue]),
   );
-  const bonds: HydrogenBond[] = [];
+  const candidates: Array<{ bond: HydrogenBond; score: number }> = [];
   const seen = new Set<string>();
-  const add = (acceptor: number, donor: number, kind: 'helix' | 'sheet') => {
-    const acceptorAtom = atomsByResidue.get(acceptor)?.carbonylOxygen;
-    const donorAtom = atomsByResidue.get(donor)?.nitrogen;
-    if (!acceptorAtom || !donorAtom) return;
+
+  const add = (acceptor: number, donor: number, kind: HydrogenBond['kind']) => {
+    const acceptorAtoms = atomsByResidue.get(acceptor);
+    const donorAtoms = atomsByResidue.get(donor);
+    const acceptorAtom = acceptorAtoms?.carbonylOxygen;
+    const donorAtom = donorAtoms?.nitrogen;
+    if (!acceptorAtom || !donorAtom || donorAtoms?.residueName === 'PRO') return;
+
     const separation = distance(acceptorAtom, donorAtom);
-    if (separation < 2.45 || separation > 3.65) return;
+    // Heavy-atom O...N distances outside this range are not rendered as
+    // candidate backbone hydrogen bonds.
+    if (separation < 2.55 || separation > 3.55) return;
+
+    const nToO = normalize(subtract(acceptorAtom, donorAtom));
+    let anglePenalty = 0;
+
+    // Approximate the N-H direction from the two bonded heavy atoms when the
+    // preceding carbonyl carbon is present. This rejects many accidental
+    // close O...N approaches while remaining compatible with X-ray PDB files
+    // that contain no explicit hydrogens.
+    const previousCarbon = atomsByResidue.get(donor - 1)?.carbonylCarbon;
+    if (previousCarbon && donorAtoms?.alphaCarbon) {
+      const nToPreviousC = normalize(subtract(previousCarbon, donorAtom));
+      const nToCa = normalize(subtract(donorAtoms.alphaCarbon, donorAtom));
+      const virtualHydrogenDirection = normalize([
+        -nToPreviousC[0] - nToCa[0],
+        -nToPreviousC[1] - nToCa[1],
+        -nToPreviousC[2] - nToCa[2],
+      ]);
+      const donorAlignment = dot(virtualHydrogenDirection, nToO);
+      if (donorAlignment < 0.2) return;
+      anglePenalty += (1 - donorAlignment) * 0.35;
+    }
+
+    // A carbonyl oxygen is a plausible acceptor when the incoming N is
+    // approximately on the outward side of the C=O bond.
+    if (acceptorAtoms?.carbonylCarbon) {
+      const cToO = normalize(subtract(acceptorAtom, acceptorAtoms.carbonylCarbon));
+      const oToN = normalize(subtract(donorAtom, acceptorAtom));
+      const acceptorAlignment = dot(cToO, oToN);
+      if (acceptorAlignment < 0.05) return;
+      anglePenalty += (1 - acceptorAlignment) * 0.2;
+    }
+
     const key = `${acceptor}:${donor}`;
     if (seen.has(key)) return;
     seen.add(key);
-    bonds.push({ acceptor, donor, acceptorXYZ: acceptorAtom, donorXYZ: donorAtom, kind, distance: separation });
+    const score = Math.abs(separation - 2.95) + anglePenalty;
+    candidates.push({
+      bond: { acceptor, donor, acceptorXYZ: acceptorAtom, donorXYZ: donorAtom, kind, distance: separation },
+      score,
+    });
   };
 
-  // Alpha-helical i -> i+4 backbone contacts, using the actual PDB O and N atoms.
+  // First add canonical alpha-helical i -> i+4 contacts.
   for (const residue of residues) {
     const donor = bySeq.get(residue.seq + 4);
-    if (residue.secondary === 'helix' && donor?.secondary === 'helix') add(residue.seq, donor.seq, 'helix');
-  }
-
-  // Beta-sheet backbone contacts: only non-local O...N pairs that are also close in space.
-  const sheetResidues = residues.filter((residue) => residue.secondary === 'sheet');
-  for (let i = 0; i < sheetResidues.length; i += 1) {
-    for (let j = i + 1; j < sheetResidues.length; j += 1) {
-      const a = sheetResidues[i];
-      const b = sheetResidues[j];
-      if (Math.abs(a.seq - b.seq) < 4 || distance(a.xyz, b.xyz) > 8.5) continue;
-      add(a.seq, b.seq, 'sheet');
-      add(b.seq, a.seq, 'sheet');
+    if (residue.secondary === 'helix' && donor?.secondary === 'helix') {
+      add(residue.seq, donor.seq, 'helix');
     }
   }
-  return bonds;
+
+  // Then search all experimentally positioned backbone O...N pairs. Beta-sheet
+  // contacts may be non-local; short-range turns are included only when the
+  // two C-alpha positions are spatially close. All displayed endpoints are
+  // the actual PDB atom coordinates, not hand-placed decoration.
+  for (let i = 0; i < residues.length; i += 1) {
+    const acceptor = residues[i];
+    if (!atomsByResidue.get(acceptor.seq)?.carbonylOxygen) continue;
+    for (let j = 0; j < residues.length; j += 1) {
+      if (i === j) continue;
+      const donor = residues[j];
+      const sequenceSeparation = Math.abs(acceptor.seq - donor.seq);
+      if (sequenceSeparation < 3) continue;
+      if (!atomsByResidue.get(donor.seq)?.nitrogen || atomsByResidue.get(donor.seq)?.residueName === 'PRO') continue;
+      const caSeparation = distance(acceptor.xyz, donor.xyz);
+      const bothSheet = acceptor.secondary === 'sheet' && donor.secondary === 'sheet';
+      if (caSeparation > (bothSheet ? 10.5 : 8.0)) continue;
+
+      const kind: HydrogenBond['kind'] =
+        acceptor.secondary === 'helix' && donor.secondary === 'helix' && sequenceSeparation === 4
+          ? 'helix'
+          : bothSheet ? 'sheet' : 'turn';
+      add(acceptor.seq, donor.seq, kind);
+    }
+  }
+
+  // Prefer the most plausible geometry; the viewer caps the number drawn so
+  // the atom-contact layer stays legible on iPads and smaller displays.
+  return candidates
+    .sort((a, b) => a.score - b.score)
+    .map(({ bond }) => bond)
+    .slice(0, 90);
 }
 
 /** Parse the fixed-width PDB format and retain the experimental C-alpha and selected all-atom contacts. */
@@ -194,6 +274,9 @@ export function parsePdb(text: string): ProteinModel {
     if (!atomsByResidue.has(residue)) atomsByResidue.set(residue, { residueName, charged: new Map() });
     const residueAtoms = atomsByResidue.get(residue)!;
     if (atomName === 'N') residueAtoms.nitrogen = position;
+    if (atomName === 'CA') residueAtoms.alphaCarbon = position;
+    if (atomName === 'CB' && residueName === 'CYS') residueAtoms.betaCarbon = position;
+    if (atomName === 'C') residueAtoms.carbonylCarbon = position;
     if (atomName === 'O') residueAtoms.carbonylOxygen = position;
 
     const chargedAtomNames =
@@ -225,7 +308,9 @@ export function parsePdb(text: string): ProteinModel {
   }
 
   const residues = [...alphaCarbons.values()].sort((a, b) => a.seq - b.seq);
-  const sulfurs = [...sulfurByResidue.values()].sort((a, b) => a.residue - b.residue);
+  const sulfurs = [...sulfurByResidue.values()]
+    .map((atom) => ({ ...atom, betaCarbon: atomsByResidue.get(atom.residue)?.betaCarbon }))
+    .sort((a, b) => a.residue - b.residue);
   const sulfurMap = new Map<number, SulfurAtom>();
   sulfurs.forEach((atom) => sulfurMap.set(atom.residue, atom));
   const disulfides = explicitBonds.filter((bond) => sulfurMap.has(bond.a) && sulfurMap.has(bond.b));
@@ -295,6 +380,14 @@ export function parsePdb(text: string): ProteinModel {
   }
   if (disulfides.length !== 4) {
     throw new Error(`Es wurden ${disulfides.length} Disulfidbrücken erkannt. Für das nicht reduzierte 1LYZ-Modell werden vier erwartet.`);
+  }
+  if (id === '1LYZ') {
+    const pairKey = (bond: DisulfideBond) => `${Math.min(bond.a, bond.b)}-${Math.max(bond.a, bond.b)}`;
+    const expectedPairs = ['6-127', '30-115', '64-80', '76-94'];
+    const actualPairs = disulfides.map(pairKey).sort();
+    if (expectedPairs.slice().sort().some((pair, index) => actualPairs[index] !== pair)) {
+      throw new Error(`Die Disulfid-Verknüpfung passt nicht zu 1LYZ. Erwartet: ${expectedPairs.join(', ')}; gefunden: ${actualPairs.join(', ')}.`);
+    }
   }
   if (id !== '1LYZ') {
     throw new Error(`Es wurde PDB ${id} geladen. Bitte die experimentelle Struktur 1LYZ verwenden.`);

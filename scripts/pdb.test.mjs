@@ -16,7 +16,7 @@ function makeFixture() {
     fixedLine([[0, 6, 'HEADER'], [62, 66, '1LYZ']]),
     fixedLine([[0, 6, 'HELIX '], [21, 25, '1'], [33, 37, '10']]),
   ];
-  const pairs = [[1, 129], [2, 128], [3, 127], [4, 126]];
+  const pairs = [[6, 127], [30, 115], [64, 80], [76, 94]];
   let serial = 1;
   for (let seq = 1; seq <= 129; seq += 1) {
     const cysteine = pairs.some(([a, b]) => a === seq || b === seq);
@@ -47,6 +47,11 @@ function makeFixture() {
     }
     if (cysteine) {
       lines.push(fixedLine([
+        [0, 6, 'ATOM  '], [6, 11, String(serial++).padStart(5)], [12, 16, ' CB '],
+        [17, 20, 'CYS'], [21, 22, 'A'], [22, 26, String(seq).padStart(4)],
+        [30, 38, (x + 0.3).toFixed(3).padStart(8)], [38, 46, (y + 0.1).toFixed(3).padStart(8)], [46, 54, (z - 0.1).toFixed(3).padStart(8)],
+      ]));
+      lines.push(fixedLine([
         [0, 6, 'ATOM  '], [6, 11, String(serial++).padStart(5)], [12, 16, ' SG '],
         [17, 20, 'CYS'], [21, 22, 'A'], [22, 26, String(seq).padStart(4)],
         [30, 38, (x + 0.5).toFixed(3).padStart(8)], [38, 46, (y + 0.2).toFixed(3).padStart(8)], [46, 54, (z - 0.2).toFixed(3).padStart(8)],
@@ -66,7 +71,9 @@ test('PDB parser reads 1LYZ chain A, charged side chains, native contacts and fo
   assert.equal(model.chain, 'A');
   assert.equal(model.residues.length, 129);
   assert.equal(model.disulfides.length, 4);
+  assert.deepEqual(model.disulfides.map(({ a, b }) => `${a}-${b}`).sort(), ['30-115', '6-127', '64-80', '76-94']);
   assert.equal(model.sulfurs.length, 8);
+  assert.ok(model.sulfurs.every((atom) => Array.isArray(atom.betaCarbon) && atom.betaCarbon.length === 3));
   assert.ok(model.chargedSites.some((site) => site.residue === 10 && site.charge === 'negative'));
   assert.ok(model.chargedSites.some((site) => site.residue === 20 && site.charge === 'positive'));
   assert.ok(model.ionicContacts.some((contact) => contact.negativeResidue === 10 && contact.positiveResidue === 20));
