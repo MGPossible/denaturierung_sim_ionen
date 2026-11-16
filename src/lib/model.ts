@@ -91,73 +91,6 @@ function deterministicAngle(sequence: number, variant = 0): number {
   return (raw - Math.floor(raw)) * Math.PI * 2;
 }
 
-type DisulfideConstraint = {
-  a: number;
-  b: number;
-  caDistance: number;
-  sgDistance: number;
-  offsetA: [number, number, number];
-  offsetB: [number, number, number];
-};
-
-type MorphStaticData = {
-  coilA: Array<[number, number, number]>;
-  coilB: Array<[number, number, number]>;
-  continuousPairs: Array<[number, number]>;
-  disulfideConstraints: DisulfideConstraint[];
-};
-
-// Coil ensembles and geometric constraints depend only on the parsed PDB
-// model. Cache them once instead of rebuilding them for every animation frame.
-const morphStaticCache = new WeakMap<ProteinModel, MorphStaticData>();
-
-function getMorphStaticData(model: ProteinModel): MorphStaticData {
-  const cached = morphStaticCache.get(model);
-  if (cached) return cached;
-
-  const residues = model.residues;
-  const indexBySeq = new Map<number, number>();
-  residues.forEach((residue, index) => indexBySeq.set(residue.seq, index));
-  const sulfurBySeq = new Map<number, SulfurAtom>();
-  model.sulfurs.forEach((atom) => sulfurBySeq.set(atom.residue, atom));
-
-  const continuousPairs: Array<[number, number]> = [];
-  for (let index = 0; index < residues.length - 1; index += 1) {
-    if (residues[index + 1].seq === residues[index].seq + 1) continuousPairs.push([index, index + 1]);
-  }
-
-  const disulfideConstraints = model.disulfides.flatMap((bond): DisulfideConstraint[] => {
-    const a = indexBySeq.get(bond.a);
-    const b = indexBySeq.get(bond.b);
-    const sulfurA = sulfurBySeq.get(bond.a);
-    const sulfurB = sulfurBySeq.get(bond.b);
-    if (a === undefined || b === undefined || !sulfurA || !sulfurB) return [];
-    const caA = residues[a].xyz;
-    const caB = residues[b].xyz;
-    return [{
-      a,
-      b,
-      caDistance: Math.hypot(caA[0] - caB[0], caA[1] - caB[1], caA[2] - caB[2]),
-      sgDistance: Math.hypot(
-        sulfurA.xyz[0] - sulfurB.xyz[0],
-        sulfurA.xyz[1] - sulfurB.xyz[1],
-        sulfurA.xyz[2] - sulfurB.xyz[2],
-      ),
-      offsetA: [sulfurA.xyz[0] - caA[0], sulfurA.xyz[1] - caA[1], sulfurA.xyz[2] - caA[2]],
-      offsetB: [sulfurB.xyz[0] - caB[0], sulfurB.xyz[1] - caB[1], sulfurB.xyz[2] - caB[2]],
-    }];
-  });
-
-  const data: MorphStaticData = {
-    coilA: buildCoilTrace(residues, 0),
-    coilB: buildCoilTrace(residues, 1),
-    continuousPairs,
-    disulfideConstraints,
-  };
-  morphStaticCache.set(model, data);
-  return data;
-}
-
 function buildCoilTrace(residues: ProteinResidue[], variant = 0): Array<[number, number, number]> {
   const result = residues.map((residue) => [...residue.xyz] as [number, number, number]);
   if (residues.length < 4) return result;
@@ -225,23 +158,48 @@ function correctDistance(
   const ox = dx * offset;
   const oy = dy * offset;
   const oz = dz * offset;
-  // Update tuples in place to avoid thousands of short-lived arrays during
-  // the iterative geometry relaxation on every animation frame.
-  pa[0] += ox; pa[1] += oy; pa[2] += oz;
-  pb[0] -= ox; pb[1] -= oy; pb[2] -= oz;
+  points[a] = [pa[0] + ox, pa[1] + oy, pa[2] + oz];
+  points[b] = [pb[0] - ox, pb[1] - oy, pb[2] - oz];
 }
 
 function preserveBackboneAndDisulfides(
   points: Array<[number, number, number]>,
-  staticData: MorphStaticData,
+  model: ProteinModel,
 ) {
+  const indexBySeq = new Map<number, number>();
+  model.residues.forEach((residue, index) => indexBySeq.set(residue.seq, index));
+  const sulfurBySeq = new Map<number, SulfurAtom>();
+  model.sulfurs.forEach((atom) => sulfurBySeq.set(atom.residue, atom));
+  const disulfideConstraints = model.disulfides.flatMap((bond) => {
+    const a = indexBySeq.get(bond.a);
+    const b = indexBySeq.get(bond.b);
+    const sulfurA = sulfurBySeq.get(bond.a);
+    const sulfurB = sulfurBySeq.get(bond.b);
+    if (a === undefined || b === undefined || !sulfurA || !sulfurB) return [];
+    const caA = model.residues[a].xyz;
+    const caB = model.residues[b].xyz;
+    return [{
+      a,
+      b,
+      caDistance: Math.hypot(caA[0] - caB[0], caA[1] - caB[1], caA[2] - caB[2]),
+      sgDistance: Math.hypot(
+        sulfurA.xyz[0] - sulfurB.xyz[0],
+        sulfurA.xyz[1] - sulfurB.xyz[1],
+        sulfurA.xyz[2] - sulfurB.xyz[2],
+      ),
+      offsetA: [sulfurA.xyz[0] - caA[0], sulfurA.xyz[1] - caA[1], sulfurA.xyz[2] - caA[2]] as [number, number, number],
+      offsetB: [sulfurB.xyz[0] - caB[0], sulfurB.xyz[1] - caB[1], sulfurB.xyz[2] - caB[2]] as [number, number, number],
+    }];
+  });
+
   // Position-based geometric relaxation preserves Cα spacing and both the
   // Cα-pair and Sγ–Sγ distances of disulfide-linked cysteines. This is not MD.
   for (let iteration = 0; iteration < 32; iteration += 1) {
-    for (const [a, b] of staticData.continuousPairs) {
-      correctDistance(points, a, b, 3.83, 0.78);
+    for (let index = 0; index < model.residues.length - 1; index += 1) {
+      if (model.residues[index + 1].seq !== model.residues[index].seq + 1) continue;
+      correctDistance(points, index, index + 1, 3.83, 0.78);
     }
-    for (const constraint of staticData.disulfideConstraints) {
+    for (const constraint of disulfideConstraints) {
       correctDistance(points, constraint.a, constraint.b, constraint.caDistance, 0.46);
       correctDistanceWithOffsets(
         points, constraint.a, constraint.b, constraint.offsetA, constraint.offsetB, constraint.sgDistance, 0.72,
@@ -271,10 +229,8 @@ function correctDistanceWithOffsets(
   const ox = dx * factor;
   const oy = dy * factor;
   const oz = dz * factor;
-  // Update tuples in place to avoid thousands of short-lived arrays during
-  // the iterative geometry relaxation on every animation frame.
-  pa[0] += ox; pa[1] += oy; pa[2] += oz;
-  pb[0] -= ox; pb[1] -= oy; pb[2] -= oz;
+  points[a] = [pa[0] + ox, pa[1] + oy, pa[2] + oz];
+  points[b] = [pb[0] - ox, pb[1] - oy, pb[2] - oz];
 }
 
 export function morphCoordinates(
@@ -289,9 +245,8 @@ export function morphCoordinates(
 
   // Two reproducible coil ensembles distinguish the unfolding trajectory from
   // the off-pathway, kinetically trapped conformation after a high-salt excursion.
-  const staticData = getMorphStaticData(model);
-  const coilA = staticData.coilA;
-  const coilB = staticData.coilB;
+  const coilA = buildCoilTrace(model.residues, 0);
+  const coilB = buildCoilTrace(model.residues, 1);
   const trappedShare = effective > 1e-8 ? clamp01(trapped / effective) : 0;
   const morphed = model.residues.map((residue, index): [number, number, number] => {
     const native = residue.xyz;
@@ -310,18 +265,12 @@ export function morphCoordinates(
     ];
   });
 
-  preserveBackboneAndDisulfides(morphed, staticData);
+  preserveBackboneAndDisulfides(morphed, model);
 
-  let centerX = 0;
-  let centerY = 0;
-  let centerZ = 0;
-  for (const point of morphed) {
-    centerX += point[0];
-    centerY += point[1];
-    centerZ += point[2];
-  }
-  const inverseCount = 1 / morphed.length;
-  const center: [number, number, number] = [centerX * inverseCount, centerY * inverseCount, centerZ * inverseCount];
+  const center = morphed.reduce<[number, number, number]>(
+    (sum, point) => [sum[0] + point[0] / morphed.length, sum[1] + point[1] / morphed.length, sum[2] + point[2] / morphed.length],
+    [0, 0, 0],
+  );
   return morphed.map((point) => [point[0] - center[0], point[1] - center[1], point[2] - center[2]]);
 }
 
