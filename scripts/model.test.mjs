@@ -95,3 +95,13 @@ test('kinetically trapped conformation is not identical to the native PDB trace'
   ), 0);
   assert.ok(displacement > 20, `Expected a visibly different trapped conformation, got displacement ${displacement}`);
 });
+
+
+test('morph calculations are deterministic and do not mutate the native model', () => {
+  const model = fixture();
+  const nativeSnapshot = structuredClone(model);
+  const first = morphCoordinates(model, 0.73, 0.18);
+  const second = morphCoordinates(model, 0.73, 0.18);
+  assert.deepEqual(second, first);
+  assert.deepEqual(model, nativeSnapshot);
+});

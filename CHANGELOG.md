@@ -1,3 +1,13 @@
+## 1.3.5 – Performance
+- Three.js-Render-Schleife auf bedarfsgesteuertes Rendering umgestellt; im Leerlauf keine permanente GPU-Renderarbeit.
+- Morph-Übergänge zeitbasiert interpoliert, damit die Reaktionszeit weniger von 60-/120-Hz-Bildraten abhängt.
+- Adaptive Geometrie-Aktualisierung anhand der tatsächlichen CPU-Erstellungszeit.
+- Gdm⁺- und Cl⁻-Partikel zu InstancedMeshes zusammengefasst, um Draw Calls zu reduzieren.
+- Coil-Ensembles, Sequenznachbarschaften und Disulfidbedingungen pro PDB-Modell zwischengespeichert.
+- Moderat reduzierte Geometrieauflösung und Render-Pixelmaßstäbe, insbesondere für Touch-Geräte.
+- Animation pausiert bei verborgenem Browser-Tab und wird beim Zurückkehren neu initialisiert.
+- Wissenschaftliche Modellparameter und Konzentrationskurve unverändert.
+
 # Changelog
 
 ## 1.3.4

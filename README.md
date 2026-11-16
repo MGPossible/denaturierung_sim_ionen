@@ -1,6 +1,6 @@
 # MG Possible Lab – Proteindynamik mit Guanidiniumchlorid
 
-Version 1.3.4 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
+Version 1.3.5 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
 
 ## Wissenschaftliche Ausgangsbasis
 
@@ -14,6 +14,18 @@ Die PDB-Startstruktur ist experimentell. Die Zwischenkonformationen, Konzentrati
 **Validierung der Disulfidbrücken (Hotfix 1.3.1):** Die Prüfung vergleicht die berechnete Sγ–Sγ-Distanz mit der Distanz, die im jeweiligen offiziellen `SSBOND`-Datensatz eingetragen ist. Es wird kein pauschaler idealisierter Maximalwert von 2,30 Å erzwungen. Der offizielle 1LYZ-Datensatz enthält unter anderem für Cys 30–115 eine Distanz von 2,42 Å. Die echten experimentellen Koordinaten bleiben unverändert; inkonsistente Koordinaten/Annotationen werden weiterhin abgewiesen.
 
 **Validierung der Disulfidbrücken:** Die vier Verknüpfungen werden anhand der `SSBOND`-Einträge und der experimentellen Sγ-Koordinaten geprüft. Es wird bewusst kein pauschaler idealer Sγ–Sγ-Grenzwert (z. B. maximal 2,3 Å) erzwungen: Der offizielle historische 1LYZ-Datensatz weist für Cys 30–115 eine annotierte Distanz von 2,42 Å aus. Stattdessen muss die aus den Koordinaten berechnete Distanz mit der im selben PDB-Eintrag deklarierten `SSBOND`-Distanz übereinstimmen. So wird die echte experimentelle Struktur validiert, nicht gegen eine idealisierte Geometrie ausgetauscht.
+
+## Performance-Optimierungen (1.3.5)
+
+- Three.js rendert bedarfsgesteuert und stoppt im Leerlauf, statt permanent eine Animationsschleife laufen zu lassen.
+- Konzentrationsänderungen werden zeitbasiert interpoliert; die Reaktionszeit hängt dadurch weniger von der Monitor-Bildrate ab.
+- Der Geometrie-Neuaufbau passt seine Frequenz an die gemessene CPU-Erstellungszeit an.
+- Guanidinium- und Chlorid-Ionen werden mit `InstancedMesh` gebündelt, um die Anzahl der Draw Calls zu senken.
+- Statische Coil-Ensembles, Sequenz-Nachbarschaften und Disulfid-Geometriebedingungen werden pro geladenem Proteinmodell zwischengespeichert.
+- Geometrieauflösung und interner Render-Pixelmaßstab wurden moderat reduziert; Touch-Geräte verwenden einen niedrigeren Pixelmaßstab.
+- Die Animation pausiert im Hintergrund-Tab und wird bei Rückkehr neu aufgebaut.
+
+Die Optimierungen verändern nicht die Konzentrationskurve oder die wissenschaftlichen Modellparameter. Die tatsächliche Bildrate hängt weiterhin von Gerät, Browser, Displayauflösung und GPU ab.
 
 ## Was die Simulation zeigt
 
@@ -124,3 +136,7 @@ Die Simulation verwendet 20 °C und pH 4,5 als feste Modellbedingungen. Diese We
 - Die Startansicht der Molekülkamera ist gegenüber der vorigen Version ungefähr 1,85-fach näher herangezoomt; manuelle Rotation, Zoom- und Schwenksteuerung bleiben verfügbar.
 - Die vier Disulfid-S–S-Verbindungen werden mit hellem Kern, weichem Halo und leuchtenden Schwefelatomen stärker hervorgehoben.
 - Beim erstmaligen Überschreiten der didaktischen Modellgrenze wird die Proteinoberfläche dauerhaft leicht violett getönt und einmalig kurz erschüttert. Die Erschütterung wird bei aktivierter Betriebssystemoption „Bewegung reduzieren“ unterdrückt. Ein Reset setzt den Zustand zurück.
+
+### Version 1.3.5 – Performance
+
+Die Three.js-Ansicht verwendet nun eine bedarfsgesteuerte Render-Schleife: Im Leerlauf wird nicht permanent gerendert; während einer Strukturänderung wird die Animation zeitbasiert interpoliert. Die Geometrie-Neuaufbau-Frequenz passt sich an die gemessene Erstellungszeit an. Gdm⁺- und Cl⁻-Partikel werden instanziert statt als viele einzelne Meshes erzeugt. Modellabhängige Coil-Ensembles und Geometriebedingungen werden gecacht. Der interne Pixelmaßstab ist auf Touch-Geräten reduziert und die Render-Schleife pausiert bei im Hintergrund befindlichem Tab.
