@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getConcentrationCurve, getIndicators, getIrreversibleThresholdConcentration, getSecondaryRetention, getTrappedFraction, morphCoordinates } from '../src/lib/model.ts';
+import { getConcentrationCurve, getIndicators, getIrreversibleThresholdConcentration, getSecondaryRetention, getTrappedFraction, morphCoordinates, hasCrossedIrreversibleThreshold } from '../src/lib/model.ts';
 
 function fixture() {
   const xy = [
@@ -94,4 +94,14 @@ test('kinetically trapped conformation is not identical to the native PDB trace'
     point[0] - trapped[index][0], point[1] - trapped[index][1], point[2] - trapped[index][2],
   ), 0);
   assert.ok(displacement > 20, `Expected a visibly different trapped conformation, got displacement ${displacement}`);
+});
+
+
+test('chart marker state becomes irreversible only after the model boundary is crossed', () => {
+  const threshold = getIrreversibleThresholdConcentration();
+  assert.equal(hasCrossedIrreversibleThreshold(threshold - 0.01), false);
+  assert.equal(hasCrossedIrreversibleThreshold(threshold), false);
+  assert.equal(hasCrossedIrreversibleThreshold(threshold + 0.01), true);
+  // The peak is retained during dilution, so the lilac state remains active.
+  assert.equal(hasCrossedIrreversibleThreshold(8), true);
 });

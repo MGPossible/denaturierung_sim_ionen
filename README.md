@@ -124,3 +124,6 @@ Die Simulation verwendet 20 °C und pH 4,5 als feste Modellbedingungen. Diese We
 - Die Startansicht der Molekülkamera ist gegenüber der vorigen Version ungefähr 1,85-fach näher herangezoomt; manuelle Rotation, Zoom- und Schwenksteuerung bleiben verfügbar.
 - Die vier Disulfid-S–S-Verbindungen werden mit hellem Kern, weichem Halo und leuchtenden Schwefelatomen stärker hervorgehoben.
 - Beim erstmaligen Überschreiten der didaktischen Modellgrenze wird die Proteinoberfläche dauerhaft leicht violett getönt und einmalig kurz erschüttert. Die Erschütterung wird bei aktivierter Betriebssystemoption „Bewegung reduzieren“ unterdrückt. Ein Reset setzt den Zustand zurück.
+
+
+**Marker-Farb-Hotfix zu 1.3.4:** Beim Überschreiten der irreversiblen Modellgrenze wird der gelbe Marker blass-lila und bleibt beim Verdünnen lila. Die Kurvenberechnung und der 42-%-Modellanteil bleiben unverändert.

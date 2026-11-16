@@ -34,3 +34,9 @@
 - Footer auf „MG POSSIBLE LAB“ verkürzt.
 - GitHub-Pages-Actions auf Node-24-kompatible Versionen aktualisiert: `configure-pages@v6`, `upload-pages-artifact@v5` (mit `include-hidden-files: true` für `.nojekyll`), `deploy-pages@v5.0.1`.
 - Erklärtext zu den festen Modellbedingungen (pH 4,5 und 20 °C) ergänzt.
+
+
+## 1.3.4 – Marker-Farb-Hotfix
+- Der Konzentrationsmarker in der Übergangskurve wechselt nach Überschreiten der irreversiblen Modellgrenze von Gelb zu blassem Lila.
+- Die lila Markierung bleibt beim Verdünnen bestehen, da sie an die gespeicherte Spitzenkonzentration gekoppelt ist – wie die irreversible Proteinfärbung.
+- Die Kurve, der Entfaltungsindex und der kinetisch gefangene Anteil (maximal 42 %) bleiben unverändert. Keine Performance-Änderungen aus 1.3.5 übernommen.

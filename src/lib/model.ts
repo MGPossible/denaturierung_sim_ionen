@@ -61,6 +61,11 @@ export function getIrreversibleThresholdConcentration(): number {
   return (low + high) / 2;
 }
 
+/** True once the experiment's maximum concentration has crossed the irreversible teaching-model boundary. */
+export function hasCrossedIrreversibleThreshold(peakConcentration: number): boolean {
+  return peakConcentration > getIrreversibleThresholdConcentration();
+}
+
 export function getIndicators(concentration: number, peakConcentration = concentration): ModelIndicators {
   const reversible = getUnfoldedIndex(concentration);
   const trapped = getTrappedFraction(peakConcentration);

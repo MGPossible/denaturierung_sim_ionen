@@ -157,6 +157,8 @@ h1 em { color: #81d3ca; font-style: normal; }
 .chart-cursor { stroke: #e8b96c; stroke-width: 1.2; stroke-dasharray: 3 3; }
 .chart-dot { fill: #ffd15f; stroke: #fff0bd; stroke-width: 2.2; filter: drop-shadow(0 0 3px rgba(255, 202, 82, .9)); }
 .chart-dot-halo { fill: rgba(255, 198, 70, .18); stroke: rgba(255, 220, 140, .7); stroke-width: 1.2; pointer-events: none; }
+.chart-dot-irreversible { fill: #d9caff; stroke: #f2ebff; filter: drop-shadow(0 0 4px rgba(208, 184, 255, .95)); }
+.chart-dot-halo-irreversible { fill: rgba(190, 164, 255, .25); stroke: rgba(220, 203, 255, .9); }
 .chart-hit-area { fill: transparent; cursor: ew-resize; touch-action: none; outline: none; }
 .chart-hit-area:focus-visible { stroke: #ffdf91; stroke-width: 1.5; stroke-dasharray: 3 3; }
 .chart-hit-area:active { cursor: grabbing; }

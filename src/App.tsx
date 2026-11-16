@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { ProteinViewer } from './components/ProteinViewer';
-import { getConcentrationCurve, getIndicators, getIrreversibleThresholdConcentration, getStructureState } from './lib/model';
+import { getConcentrationCurve, getIndicators, getIrreversibleThresholdConcentration, getStructureState, hasCrossedIrreversibleThreshold } from './lib/model';
 import { parsePdb, type ProteinModel } from './lib/pdb';
 
 function percent(value: number) {
@@ -17,7 +17,7 @@ function MetricBar({ label, value, color }: { label: string; value: number; colo
   );
 }
 
-function ConcentrationChart({ concentration, unfoldedIndex, onConcentrationChange }: { concentration: number; unfoldedIndex: number; onConcentrationChange: (value: number) => void }) {
+function ConcentrationChart({ concentration, unfoldedIndex, irreversible, onConcentrationChange }: { concentration: number; unfoldedIndex: number; irreversible: boolean; onConcentrationChange: (value: number) => void }) {
   const curve = useMemo(() => getConcentrationCurve(), []);
   const activePointer = useRef<number | null>(null);
   const width = 520;
@@ -100,12 +100,12 @@ function ConcentrationChart({ concentration, unfoldedIndex, onConcentrationChang
         />
         <line x1={x(threshold)} x2={x(threshold)} y1={top} y2={height - bottom} className="chart-threshold chart-overlay" />
         <line x1={x(concentration)} x2={x(concentration)} y1={top} y2={height - bottom} className="chart-cursor" />
-        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="11" className="chart-dot-halo" />
-        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="6" className="chart-dot" pointerEvents="none" />
+        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="11" className={`chart-dot-halo${irreversible ? ' chart-dot-halo-irreversible' : ''}`} />
+        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="6" className={`chart-dot${irreversible ? ' chart-dot-irreversible' : ''}`} pointerEvents="none" />
         <text x="13" y={(top + height - bottom) / 2} textAnchor="middle" transform={`rotate(-90 13 ${(top + height - bottom) / 2})`} className="chart-axis-title">Entfaltungsindex</text>
         <text x={(left + width - right) / 2} y={height - 1} textAnchor="middle" className="chart-axis-title">GdmCl (mol/L)</text>
       </svg>
-      <div className="chart-footnote"><span>Gelben Marker ziehen</span><span>Modellgrenze bei {threshold.toFixed(1).replace(".", ",")} M</span></div>
+      <div className="chart-footnote"><span>{irreversible ? 'Lila Marker · irreversible Schwelle überschritten' : 'Gelben Marker ziehen'}</span><span>Modellgrenze bei {threshold.toFixed(1).replace(".", ",")} M</span></div>
     </div>
   );
 }
@@ -272,7 +272,7 @@ export default function App() {
               onReset={reset}
               unfolded={indicators.reversible}
               trapped={indicators.trapped}
-              irreversible={peakConcentration > getIrreversibleThresholdConcentration()}
+              irreversible={hasCrossedIrreversibleThreshold(peakConcentration)}
               concentration={concentration}
               compare={compare}
               showHelices={showHelices}
@@ -343,7 +343,7 @@ export default function App() {
 
             <article className="chart-card panel">
               <div className="panel-heading compact"><div><div className="panel-kicker">KONZENTRATION · STRUKTUR</div><h2>Übergangskurve</h2></div></div>
-              <ConcentrationChart concentration={concentration} unfoldedIndex={indicators.unfolded} onConcentrationChange={updateConcentration} />
+              <ConcentrationChart concentration={concentration} unfoldedIndex={indicators.unfolded} irreversible={hasCrossedIrreversibleThreshold(peakConcentration)} onConcentrationChange={updateConcentration} />
             </article>
           </aside>
         </section>
