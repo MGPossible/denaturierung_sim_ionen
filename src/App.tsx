@@ -225,7 +225,19 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <div className="brand-mark"><span className="brand-monogram">M<span>G</span></span></div>
+          <div className="brand-mark" aria-label="MG Possible Lab">
+            <svg className="brand-logo" viewBox="0 0 100 100" role="img" aria-label="MG">
+              <defs>
+                <linearGradient id="mg-logo-gradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#11e5d2" />
+                  <stop offset="48%" stopColor="#32bfe0" />
+                  <stop offset="100%" stopColor="#6577ee" />
+                </linearGradient>
+              </defs>
+              <path className="brand-logo-frame" d="M10 10 H90 V90 H51 M10 10 V50" />
+              <text className="brand-logo-letters" x="50" y="63" textAnchor="middle">MG</text>
+            </svg>
+          </div>
           <div><div className="brand-name">MG Possible Lab</div><div className="brand-subtitle">Proteindynamik</div></div>
         </div>
         <div className="topbar-right">
@@ -260,6 +272,7 @@ export default function App() {
               onReset={reset}
               unfolded={indicators.reversible}
               trapped={indicators.trapped}
+              irreversible={peakConcentration > getIrreversibleThresholdConcentration()}
               concentration={concentration}
               compare={compare}
               showHelices={showHelices}
@@ -318,7 +331,7 @@ export default function App() {
             </article>
 
             <article className="metrics-card panel">
-              <div className="panel-heading compact"><div><div className="panel-kicker">STRUKTUR-ANALYSE</div><h2>Modellindikatoren</h2></div><span className="index-tag">INDEX</span></div>
+              <div className="panel-heading compact"><div><div className="panel-kicker">STRUKTUR-ANALYSE</div><h2>Modellindikatoren</h2></div></div>
               <MetricBar label="Index nativer Struktur" value={indicators.native} color="#61cfc9" />
               <MetricBar label="Index entfalteter Struktur" value={indicators.unfolded} color="#db8c65" />
               <MetricBar label="Erhalt der α-Helixstruktur" value={indicators.helixRetention} color="#55c9d3" />

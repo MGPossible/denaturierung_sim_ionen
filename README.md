@@ -1,6 +1,6 @@
 # MG Possible Lab – Proteindynamik mit Guanidiniumchlorid
 
-Version 1.3.2 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
+Version 1.3.4 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
 
 ## Wissenschaftliche Ausgangsbasis
 
@@ -81,6 +81,7 @@ Die automatisierten Node-Tests prüfen unter anderem:
 - 3D-Navigation: Ziehen zum Rotieren, Pinch/Mausrad zum Zoomen, Zwei-Finger-Geste bzw. rechte Maustaste zum Verschieben.
 - Native Referenz: transparente Überlagerung der nativen 1LYZ-Konformation.
 - Ein-/Ausblenden von Helices, β-Faltblättern, Disulfidbrücken, Ionen und H-Brücken über getrennte Schalter.
+- Nach erstmaligem Überschreiten der irreversiblen didaktischen Modellgrenze wird die Proteinkette dezent violett eingefärbt und einmalig kurz erschüttert; bei aktivierter Betriebssystem-Einstellung „Bewegung reduzieren“ entfällt das Schütteln.
 - Geschwindigkeitsauswahl, Kamera-Reset, dynamische Modellkurve und normalisierte Modellindikatoren.
 
 ## GitHub Pages
@@ -115,3 +116,11 @@ Die Simulation verwendet 20 °C und pH 4,5 als feste Modellbedingungen. Diese We
 - Das „LIVE“-Label an der Übergangskurve wurde entfernt.
 - Der Footer zeigt nur noch „MG POSSIBLE LAB“.
 - GitHub-Pages-Workflow aktualisiert: `configure-pages@v6`, `upload-pages-artifact@v5` (einschließlich versteckter Dateien wie `.nojekyll`) und `deploy-pages@v5.0.1` verwenden Node-24-kompatible Generationen.
+
+
+### Version 1.3.4
+
+- Das Header-Logo wurde dem bereitgestellten MG-Monogramm nachempfunden: schlanke Buchstaben, offener Rahmen und ein Türkis-Blau-Violett-Verlauf als skalierbare SVG.
+- Die Startansicht der Molekülkamera ist gegenüber der vorigen Version ungefähr 1,85-fach näher herangezoomt; manuelle Rotation, Zoom- und Schwenksteuerung bleiben verfügbar.
+- Die vier Disulfid-S–S-Verbindungen werden mit hellem Kern, weichem Halo und leuchtenden Schwefelatomen stärker hervorgehoben.
+- Beim erstmaligen Überschreiten der didaktischen Modellgrenze wird die Proteinoberfläche dauerhaft leicht violett getönt und einmalig kurz erschüttert. Die Erschütterung wird bei aktivierter Betriebssystemoption „Bewegung reduzieren“ unterdrückt. Ein Reset setzt den Zustand zurück.

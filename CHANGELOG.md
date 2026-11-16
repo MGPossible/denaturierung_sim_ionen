@@ -1,3 +1,13 @@
+# Changelog
+
+## 1.3.4
+- Replaced the header monogram with a scalable SVG mark based on the supplied reference: thin MG letters and an open cyan-to-indigo frame.
+- Increased the default molecular camera zoom by approximately 1.85x while preserving OrbitControls zoom and pan.
+- Made native disulfide S–S links visibly luminous using a bright core, soft halo and emissive sulfur atoms.
+- Removed the redundant INDEX badge from the structure analysis heading.
+- Added a persistent lilac tint to the protein body after crossing the irreversible teaching-model boundary.
+- Added a brief, one-time damped molecular shake when the irreversible boundary is first crossed; it respects reduced-motion preferences and resets with the experiment.
+
 # Änderungen
 
 ## 1.3.1

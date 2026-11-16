@@ -9,6 +9,7 @@ type Props = {
   onReset: () => void;
   unfolded: number;
   trapped: number;
+  irreversible: boolean;
   concentration: number;
   compare: boolean;
   showHelices: boolean;
@@ -28,7 +29,6 @@ const ION_COLORS = {
   guanidinium: 0xff8c68,
   chloride: 0x72bfff,
   hydrogenBond: 0x28efff,
-  disulfide: 0xa8efa0,
 };
 
 function disposeGroup(group: THREE.Group) {
@@ -78,7 +78,9 @@ function makeRibbon(points: THREE.Vector3[], width: number, color: number, opaci
     opacity,
     depthWrite: opacity > 0.85,
   });
-  return new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.userData.proteinSurface = true;
+  return mesh;
 }
 
 function runsOfType(residues: ProteinResidue[], type: SecondaryType): ProteinResidue[][] {
@@ -93,21 +95,6 @@ function runsOfType(residues: ProteinResidue[], type: SecondaryType): ProteinRes
   }
   if (active.length > 1) runs.push(active);
   return runs;
-}
-
-function addIonSphere(group: THREE.Group, position: THREE.Vector3, color: number, radius: number, emissive: number) {
-  const mesh = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 12, 10),
-    new THREE.MeshStandardMaterial({
-      color,
-      emissive,
-      emissiveIntensity: 0.62,
-      roughness: 0.28,
-      metalness: 0.08,
-    }),
-  );
-  mesh.position.copy(position);
-  group.add(mesh);
 }
 
 function addCovalentSegment(group: THREE.Group, start: THREE.Vector3, end: THREE.Vector3, color: number, radius: number, opacity = 1) {
@@ -126,6 +113,41 @@ function addCovalentSegment(group: THREE.Group, start: THREE.Vector3, end: THREE
   group.add(new THREE.Mesh(geometry, material));
 }
 
+
+function addGlowingDisulfide(group: THREE.Group, start: THREE.Vector3, end: THREE.Vector3, opacity = 1) {
+  if (start.distanceToSquared(end) < 1e-6) return;
+  const curve = new THREE.LineCurve3(start, end);
+  const halo = new THREE.Mesh(
+    new THREE.TubeGeometry(curve, 10, 0.074, 9, false),
+    new THREE.MeshBasicMaterial({ color: 0x9cff78, transparent: true, opacity: 0.24 * opacity, depthWrite: false, toneMapped: false }),
+  );
+  const core = new THREE.Mesh(
+    new THREE.TubeGeometry(curve, 10, 0.036, 9, false),
+    new THREE.MeshBasicMaterial({ color: 0xdfffbd, transparent: true, opacity, depthWrite: false, toneMapped: false }),
+  );
+  halo.renderOrder = 5;
+  core.renderOrder = 6;
+  group.add(halo, core);
+}
+
+function addGlowingSulfur(group: THREE.Group, position: THREE.Vector3, opacity = 1) {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.062, 16, 12),
+    new THREE.MeshStandardMaterial({
+      color: 0xe4ffbd,
+      emissive: 0x91ff52,
+      emissiveIntensity: 1.05,
+      roughness: 0.2,
+      metalness: 0.02,
+      transparent: opacity < 1,
+      opacity,
+      toneMapped: false,
+    }),
+  );
+  mesh.position.copy(position);
+  group.add(mesh);
+}
+
 function renderProtein(
   group: THREE.Group,
   model: ProteinModel,
@@ -134,6 +156,7 @@ function renderProtein(
   concentration: number,
   options: { helices: boolean; sheets: boolean; disulfides: boolean; ions: boolean; hydrogenBonds: boolean },
   opacity = 1,
+  irreversibleTint = false,
 ) {
   disposeGroup(group);
   const effectiveAmount = 1 - (1 - reversibleAmount) * (1 - trappedAmount);
@@ -163,10 +186,12 @@ function renderProtein(
   };
 
   const backboneCurve = new THREE.CatmullRomCurve3(coords);
-  group.add(new THREE.Mesh(
+  const backboneMesh = new THREE.Mesh(
     new THREE.TubeGeometry(backboneCurve, Math.max(180, coords.length * 3), 0.105 + effectiveAmount * 0.035, 7, false),
     new THREE.MeshStandardMaterial({ color: 0xaab7bd, roughness: 0.68, transparent: opacity < 1, opacity: 0.68 * opacity }),
-  ));
+  );
+  backboneMesh.userData.proteinSurface = true;
+  group.add(backboneMesh);
 
   if (options.helices) {
     const retention = getSecondaryRetention(effectiveAmount, 'helix');
@@ -175,7 +200,7 @@ function renderProtein(
       const points = run.map((residue) => coordBySeq.get(residue.seq)).filter((point): point is THREE.Vector3 => Boolean(point));
       if (points.length < 3) continue;
       const curve = new THREE.CatmullRomCurve3(points);
-      group.add(new THREE.Mesh(
+      const helixMesh = new THREE.Mesh(
         new THREE.TubeGeometry(curve, points.length * 5, 0.09 + 0.155 * retention, 9, false),
         new THREE.MeshStandardMaterial({
           color: tint,
@@ -185,7 +210,9 @@ function renderProtein(
           opacity: opacity * (0.28 + 0.72 * retention),
           depthWrite: retention > 0.45 && opacity > 0.85,
         }),
-      ));
+      );
+      helixMesh.userData.proteinSurface = true;
+      group.add(helixMesh);
     }
   }
 
@@ -233,9 +260,9 @@ function renderProtein(
       // Sulfur atoms and S-S bond use a distinct vivid green, separated from
       // the yellow β-sheet colour. Coordinates are PDB SG positions, not a
       // manually positioned cross-link overlay.
-      addCovalentSegment(group, sgA, sgB, ION_COLORS.disulfide, 0.034, opacity);
-      addIonSphere(group, sgA, 0xd8ffad, 0.048, 0x457a39);
-      addIonSphere(group, sgB, 0xd8ffad, 0.048, 0x457a39);
+      addGlowingDisulfide(group, sgA, sgB, opacity);
+      addGlowingSulfur(group, sgA, opacity);
+      addGlowingSulfur(group, sgB, opacity);
     }
   }
 
@@ -380,13 +407,28 @@ function renderProtein(
     }
   }
 
+  // After the irreversible model boundary, tint only the protein body in lilac.
+  // Ion, H-bond and disulfide colours remain distinct and scientifically legible.
+  if (irreversibleTint) {
+    const lilac = new THREE.Color(0xb39aec);
+    const tintStrength = 0.19 + 0.08 * THREE.MathUtils.clamp(trappedAmount / 0.42, 0, 1);
+    group.traverse((object) => {
+      if (!object.userData.proteinSurface) return;
+      const materials = object instanceof THREE.Mesh ? (Array.isArray(object.material) ? object.material : [object.material]) : [];
+      for (const material of materials) {
+        if ('color' in material && material.color instanceof THREE.Color) material.color.lerp(lilac, tintStrength);
+        if ('emissive' in material && material.emissive instanceof THREE.Color) material.emissive.lerp(new THREE.Color(0x58458f), 0.24);
+      }
+    });
+  }
 }
 
-export function ProteinViewer({ model, onReset, unfolded, trapped, concentration, compare, showHelices, showSheets, showDisulfides, showIons, showHydrogenBonds }: Props) {
+export function ProteinViewer({ model, onReset, unfolded, trapped, irreversible, concentration, compare, showHelices, showSheets, showDisulfides, showIons, showHydrogenBonds }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(unfolded);
   const trappedRef = useRef(trapped);
   const concentrationRef = useRef(concentration);
+  const irreversibleRef = useRef(irreversible);
   const optionsRef = useRef({ helices: showHelices, sheets: showSheets, disulfides: showDisulfides, ions: showIons, hydrogenBonds: showHydrogenBonds, compare });
   const resetRef = useRef<(() => void) | null>(null);
   const centerRef = useRef<(() => void) | null>(null);
@@ -394,6 +436,10 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
   useEffect(() => { targetRef.current = unfolded; }, [unfolded]);
   useEffect(() => { trappedRef.current = trapped; }, [trapped]);
   useEffect(() => { concentrationRef.current = concentration; }, [concentration]);
+  useEffect(() => {
+    irreversibleRef.current = irreversible;
+    if (model) window.dispatchEvent(new CustomEvent('lysozyme:refresh-view'));
+  }, [irreversible, model]);
   useEffect(() => {
     optionsRef.current = { helices: showHelices, sheets: showSheets, disulfides: showDisulfides, ions: showIons, hydrogenBonds: showHydrogenBonds, compare };
     if (model) window.dispatchEvent(new CustomEvent('lysozyme:refresh-view'));
@@ -439,7 +485,7 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
     controls.dampingFactor = 0.075;
     controls.enablePan = true;
     controls.screenSpacePanning = true;
-    controls.minDistance = 3.2;
+    controls.minDistance = 2.4;
     controls.maxDistance = 40;
 
     let current = targetRef.current;
@@ -449,6 +495,9 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
     let disposed = false;
     let lastDraw = 0;
     let lastGhostState: boolean | null = null;
+    let lastIrreversible = irreversibleRef.current;
+    let shakeStartedAt = 0;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     const fitSphere = () => {
       const box = new THREE.Box3().setFromObject(proteinGroup);
       return box.getBoundingSphere(new THREE.Sphere());
@@ -456,7 +505,9 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
     const resetCamera = () => {
       const sphere = fitSphere();
       controls.target.copy(sphere.center);
-      const distance = Math.max(7, sphere.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.3);
+      const fittedDistance = Math.max(7, sphere.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov * 0.5)) * 1.3);
+      // Start about 1.85x closer than the previous fit while retaining a small frame margin.
+      const distance = Math.max(3.6, fittedDistance * 0.54);
       camera.position.copy(sphere.center).add(new THREE.Vector3(0, 0, distance));
       camera.near = Math.max(0.05, distance / 250);
       camera.far = distance * 20;
@@ -477,7 +528,7 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
     const draw = () => {
       if (disposed) return;
       const opts = optionsRef.current;
-      renderProtein(proteinGroup, model, current, currentTrapped, currentConcentration, opts, 1);
+      renderProtein(proteinGroup, model, current, currentTrapped, currentConcentration, opts, 1, irreversibleRef.current);
       if (lastGhostState !== opts.compare) {
         disposeGroup(ghostGroup);
         if (opts.compare) renderProtein(ghostGroup, model, 0, 0, 0, { helices: true, sheets: true, disulfides: false, ions: false, hydrogenBonds: false }, 0.22);
@@ -500,6 +551,29 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
 
     const animate = () => {
       if (disposed) return;
+      const irreversibleNow = irreversibleRef.current;
+      if (irreversibleNow && !lastIrreversible) {
+        lastIrreversible = true;
+        shakeStartedAt = reduceMotion ? 0 : performance.now();
+      } else if (!irreversibleNow && lastIrreversible) {
+        lastIrreversible = false;
+        shakeStartedAt = 0;
+        proteinGroup.position.set(0, 0, 0);
+        proteinGroup.rotation.set(0, 0, 0);
+      }
+      if (shakeStartedAt > 0) {
+        const progress = (performance.now() - shakeStartedAt) / 520;
+        if (progress >= 1) {
+          shakeStartedAt = 0;
+          proteinGroup.position.set(0, 0, 0);
+          proteinGroup.rotation.set(0, 0, 0);
+        } else {
+          const envelope = (1 - progress) * (1 - progress);
+          const phase = progress * Math.PI * 8;
+          proteinGroup.position.set(0.055 * envelope * Math.sin(phase), 0.028 * envelope * Math.sin(phase * 0.73), 0);
+          proteinGroup.rotation.set(0.009 * envelope * Math.sin(phase * 0.8), 0, 0.012 * envelope * Math.cos(phase));
+        }
+      }
       const target = targetRef.current;
       const targetTrapped = trappedRef.current;
       const targetConcentration = concentrationRef.current;
