@@ -249,7 +249,7 @@ export default function App() {
         <section className="intro-row">
           <div>
             <h1>Wenn Proteine<br /><em>ihre Form verlieren.</em></h1>
-            <p className="intro-copy">Erkunde, am Beispiel von Guanidiniumchlorid wie Salze die räumliche Struktur von Proteinen (hier: Hühnereiweiß-Lysozym) dauerhaft oder reversibel verändern können – und wie sie sich die Proteinkette beim Verdünnen unter Umständen (um-)ordnen können.</p>
+            <p className="intro-copy">Erkunde, am Beispiel von Guanidiniumchlorid wie Salze die räumliche Struktur von Proteinen (hier: Hühnereiweiß-Lysozym) dauerhaft oder reversibel verändern können – und wie sich die Proteinkette beim Verdünnen unter Umständen (um-)ordnen können.</p>
           </div>
           <div className="conditions-card">
             <div className="conditions-heading">VERSUCHSBEDINGUNGEN</div>
