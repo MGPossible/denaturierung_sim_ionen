@@ -130,7 +130,8 @@ export default function App() {
   const [showHelices, setShowHelices] = useState(true);
   const [showSheets, setShowSheets] = useState(true);
   const [showDisulfides, setShowDisulfides] = useState(true);
-  const [showIonInteractions, setShowIonInteractions] = useState(true);
+  const [showIons, setShowIons] = useState(true);
+  const [showHydrogenBonds, setShowHydrogenBonds] = useState(true);
   const [peakConcentration, setPeakConcentration] = useState(0);
   const [model, setModel] = useState<ProteinModel | null>(null);
   const [structureError, setStructureError] = useState('');
@@ -264,7 +265,8 @@ export default function App() {
               showHelices={showHelices}
               showSheets={showSheets}
               showDisulfides={showDisulfides}
-              showIonInteractions={showIonInteractions}
+              showIons={showIons}
+              showHydrogenBonds={showHydrogenBonds}
             />
             <div className="legend-row">
               <span><i className="legend-dot helix" /> α-Helix</span>
@@ -279,7 +281,8 @@ export default function App() {
               <label className="switch-label"><input type="checkbox" checked={showHelices} onChange={(event) => setShowHelices(event.target.checked)} /> Helices</label>
               <label className="switch-label"><input type="checkbox" checked={showSheets} onChange={(event) => setShowSheets(event.target.checked)} /> β-Faltblätter</label>
               <label className="switch-label"><input type="checkbox" checked={showDisulfides} onChange={(event) => setShowDisulfides(event.target.checked)} /> Disulfidbrücken</label>
-              <label className="switch-label"><input type="checkbox" checked={showIonInteractions} onChange={(event) => setShowIonInteractions(event.target.checked)} /> GdmCl-Ionen & H-Brücken</label>
+              <label className="switch-label"><input type="checkbox" checked={showIons} onChange={(event) => setShowIons(event.target.checked)} /> Ionen</label>
+              <label className="switch-label"><input type="checkbox" checked={showHydrogenBonds} onChange={(event) => setShowHydrogenBonds(event.target.checked)} /> H-Brücken</label>
               <button className={`compare-button ${compare ? 'active' : ''}`} type="button" aria-pressed={compare} onClick={() => setCompare((value) => !value)}>{compare ? 'Referenz ausblenden' : 'Native Referenz einblenden'}</button>
             </div>
             {(!model || structureError) && (
@@ -326,7 +329,7 @@ export default function App() {
             </article>
 
             <article className="chart-card panel">
-              <div className="panel-heading compact"><div><div className="panel-kicker">KONZENTRATION · STRUKTUR</div><h2>Übergangskurve</h2></div><span className="chart-live">LIVE</span></div>
+              <div className="panel-heading compact"><div><div className="panel-kicker">KONZENTRATION · STRUKTUR</div><h2>Übergangskurve</h2></div></div>
               <ConcentrationChart concentration={concentration} unfoldedIndex={indicators.unfolded} onConcentrationChange={updateConcentration} />
             </article>
           </aside>
@@ -386,6 +389,7 @@ export default function App() {
               </InfoSection>
               <InfoSection title="Was zeigt das Modell – und was nicht?">
                 <p>Die native Startkonformation stammt aus der experimentellen Röntgenstruktur 1LYZ. Aus den PDB-Atomkoordinaten werden ausgewählte Backbone-Wasserstoffbrücken zwischen Carbonyl-O und Amid-N sowie die vier nativen Disulfidverknüpfungen an ihren tatsächlichen Cystein-Positionen abgeleitet. Die Wasserstoffbrücken-Kontakte verblassen mit zunehmender GdmCl-Konzentration; die kovalenten Disulfidbrücken bleiben im nicht reduzierten Modell erhalten. Gdm⁺-Teilchen erscheinen schematisch nahe ausgewählter saurer Seitenketten und Carbonylgruppen; Cl⁻-Teilchen werden im umgebenden Lösungsmittelbereich gezeigt.</p>
+                <p><strong>Warum pH 4,5 und 20 °C?</strong> Das sind feste Referenzbedingungen dieses Lehrmodells, nicht aus dem PDB-Eintrag 1LYZ abgelesene Messbedingungen. 20 °C dient als moderate Raumtemperatur, damit in der Simulation vor allem der Einfluss von GdmCl und nicht eine zusätzliche Wärmeentfaltung betrachtet wird. pH 4,5 legt ein leicht saures Milieu fest und beeinflusst die Protonierung und damit die Ladung einzelner Seitenketten. Der Wert liegt nahe pH 5,0, bei dem für hoch konzentriertes Hühnereiweiß-Lysozym eine hohe thermische Stabilität berichtet wurde; diese Beobachtung ist jedoch an die dortigen Versuchsbedingungen gebunden. Andere pH-Werte und Temperaturen können das Verhalten verändern.</p>
                 <p>Die Ionenteilchen sind keine zeitaufgelöste Ionenverteilung. Der Kontaktverlust, die Entfaltungs-Zwischenzustände und die kinetische Trappung sind didaktische Modellierungen; es wird keine Molekulardynamik berechnet und keine atomare Kraftfeld-Minimierung durchgeführt. Die native Sekundärstruktur stammt aus 1LYZ, alle Balken sind normalisierte Modellindizes und keine experimentell gemessenen Prozentwerte.</p>
               </InfoSection>
             </div>
@@ -406,7 +410,7 @@ export default function App() {
           </aside>
         </section>
 
-        <footer className="footer"><span>MG POSSIBLE LAB · LEHRMODELL</span><span>Experimentelle Referenzstruktur: RCSB PDB 1LYZ · 129 Aminosäuren</span></footer>
+        <footer className="footer"><span>MG POSSIBLE LAB</span></footer>
       </main>
     </div>
   );

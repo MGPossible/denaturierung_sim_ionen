@@ -14,3 +14,13 @@
 - Einleitungstext wie vom Auftraggeber formuliert aktualisiert.
 - Molekülansicht erhielt einen Experiment-Reset, der denselben globalen Reset wie die Experimentsteuerung ausführt.
 - Der gelbe Marker in der Übergangskurve ist mit Maus, Touch und Tastatur bedienbar und steuert synchron den Konzentrationsregler.
+
+
+### Version 1.3.3 – 16. November 2026
+
+- H-Brücken in der 3D-Ansicht mit gut sichtbaren emissiven Cyan-Segmenten; die Farbe entspricht der Legende.
+- Ionen und H-Brücken separat ein- und ausschaltbar.
+- „LIVE“-Kennzeichnung an der Übergangskurve entfernt.
+- Footer auf „MG POSSIBLE LAB“ verkürzt.
+- GitHub-Pages-Actions auf Node-24-kompatible Versionen aktualisiert: `configure-pages@v6`, `upload-pages-artifact@v5` (mit `include-hidden-files: true` für `.nojekyll`), `deploy-pages@v5.0.1`.
+- Erklärtext zu den festen Modellbedingungen (pH 4,5 und 20 °C) ergänzt.

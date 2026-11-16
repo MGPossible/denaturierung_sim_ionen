@@ -80,7 +80,7 @@ Die automatisierten Node-Tests prüfen unter anderem:
 - Nach Überschreiten der Modellgrenze bleibt ein kinetisch gefangener Anteil zurück; **Reset** startet ein neues Experiment.
 - 3D-Navigation: Ziehen zum Rotieren, Pinch/Mausrad zum Zoomen, Zwei-Finger-Geste bzw. rechte Maustaste zum Verschieben.
 - Native Referenz: transparente Überlagerung der nativen 1LYZ-Konformation.
-- Ein-/Ausblenden von Helices, β-Faltblättern, Disulfidbrücken sowie GdmCl-Ionen und Backbone-H-Brücken.
+- Ein-/Ausblenden von Helices, β-Faltblättern, Disulfidbrücken, Ionen und H-Brücken über getrennte Schalter.
 - Geschwindigkeitsauswahl, Kamera-Reset, dynamische Modellkurve und normalisierte Modellindikatoren.
 
 ## GitHub Pages
@@ -102,3 +102,16 @@ Unter **Settings → Pages → Build and deployment** muss als Quelle **GitHub A
 ### Version 1.3.2
 
 Die Legendenbezeichnungen sind verkürzt („Disulfidbrücken“, „H-Brücken“); die H-Brücken sind in der 3D-Ansicht kontrastreicher cyanfarben hervorgehoben. Der Einleitungstext wurde angepasst. In der Molekülansicht setzt eine zusätzliche Reset-Schaltfläche das gesamte Experiment zurück. Die Übergangskurve ist interaktiv: Der gelbe Marker kann mit Maus oder Touch entlang der Konzentrationsachse gezogen werden. Konzentrationsanzeige, Kurvenmarker und Hauptregler bleiben synchron. Der Marker ist außerdem per Tastatur (Pfeiltasten, Pos1/Ende) bedienbar.
+
+
+### Feste Referenzbedingungen
+
+Die Simulation verwendet 20 °C und pH 4,5 als feste Modellbedingungen. Diese Werte sind Vorgaben des didaktischen Simulationsszenarios und werden nicht als experimentelle Metadaten des PDB-Eintrags 1LYZ ausgegeben. 20 °C ist eine moderate Raumtemperatur, bei der thermische Entfaltung nicht den Schwerpunkt der Simulation bilden soll. pH 4,5 legt ein leicht saures Milieu fest und beeinflusst die Protonierung bzw. Nettoladung einzelner Seitenketten. Die Wahl liegt nahe pH 5,0, bei dem in einer Untersuchung an hoch konzentriertem HEWL eine hohe thermische Stabilität gefunden wurde; das Ergebnis gilt nur unter den dortigen Versuchsbedingungen.
+
+### Version 1.3.3
+
+- H-Brücken erscheinen in der 3D-Ansicht als deutlich sichtbare, emissive Cyan-Segmente in der Farbe der Legende.
+- Ionen und H-Brücken besitzen unabhängige Ein-/Aus-Schalter.
+- Das „LIVE“-Label an der Übergangskurve wurde entfernt.
+- Der Footer zeigt nur noch „MG POSSIBLE LAB“.
+- GitHub-Pages-Workflow aktualisiert: `configure-pages@v6`, `upload-pages-artifact@v5` (einschließlich versteckter Dateien wie `.nojekyll`) und `deploy-pages@v5.0.1` verwenden Node-24-kompatible Generationen.

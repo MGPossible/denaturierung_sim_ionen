@@ -14,7 +14,8 @@ type Props = {
   showHelices: boolean;
   showSheets: boolean;
   showDisulfides: boolean;
-  showIonInteractions: boolean;
+  showIons: boolean;
+  showHydrogenBonds: boolean;
 };
 
 const COLORS: Record<SecondaryType, number> = {
@@ -131,7 +132,7 @@ function renderProtein(
   reversibleAmount: number,
   trappedAmount: number,
   concentration: number,
-  options: { helices: boolean; sheets: boolean; disulfides: boolean; ions: boolean },
+  options: { helices: boolean; sheets: boolean; disulfides: boolean; ions: boolean; hydrogenBonds: boolean },
   opacity = 1,
 ) {
   disposeGroup(group);
@@ -238,14 +239,13 @@ function renderProtein(
     }
   }
 
-  if (options.ions) {
-    const contactOpacity = opacity * Math.max(0.025, 0.72 * (1 - effectiveAmount));
+  if (options.hydrogenBonds) {
+    const contactOpacity = opacity * Math.max(0.025, 0.82 * (1 - effectiveAmount));
     const anchorVertices: THREE.Vector3[] = [];
-    const dashedVertices: THREE.Vector3[] = [];
+    const dashedSegments: Array<{ start: THREE.Vector3; end: THREE.Vector3 }> = [];
 
-    // Show more structurally screened backbone contacts than the earlier
-    // 38-line cap. Each O/N endpoint gets a short connector to its own C-alpha
-    // trace so that hydrogen-bond marks visibly belong to the polypeptide.
+    // Only PDB-derived, geometrically screened backbone O···N contacts are
+    // drawn. Thin anchor lines connect each atom endpoint to its own C-alpha.
     for (const bond of model.hydrogenBonds.slice(0, 72)) {
       const acceptor = toScene(bond.acceptorXYZ, bond.acceptor);
       const donor = toScene(bond.donorXYZ, bond.donor);
@@ -264,10 +264,10 @@ function renderProtein(
         const from = Math.min(length, offset);
         const to = Math.min(length, offset + dashLength);
         if (to - from < 0.012) continue;
-        dashedVertices.push(
-          acceptor.clone().addScaledVector(vector, from),
-          acceptor.clone().addScaledVector(vector, to),
-        );
+        dashedSegments.push({
+          start: acceptor.clone().addScaledVector(vector, from),
+          end: acceptor.clone().addScaledVector(vector, to),
+        });
       }
     }
 
@@ -275,17 +275,42 @@ function renderProtein(
       const geometry = new THREE.BufferGeometry().setFromPoints(anchorVertices);
       group.add(new THREE.LineSegments(
         geometry,
-        new THREE.LineBasicMaterial({ color: 0xc0e1e5, transparent: true, opacity: contactOpacity * 0.82, depthWrite: false }),
+        new THREE.LineBasicMaterial({ color: ION_COLORS.hydrogenBond, transparent: true, opacity: contactOpacity * 0.52, depthWrite: false, toneMapped: false }),
       ));
     }
-    if (dashedVertices.length) {
-      const geometry = new THREE.BufferGeometry().setFromPoints(dashedVertices);
-      group.add(new THREE.LineSegments(
-        geometry,
-        new THREE.LineBasicMaterial({ color: ION_COLORS.hydrogenBond, transparent: true, opacity: Math.min(1, contactOpacity * 1.32), depthWrite: false }),
-      ));
+    if (dashedSegments.length) {
+      // Instanced, emissive cyan dashes are thicker and retain the same vivid
+      // colour as the legend without creating hundreds of individual meshes.
+      const geometry = new THREE.CylinderGeometry(0.012, 0.012, 1, 7, 1, false);
+      const material = new THREE.MeshStandardMaterial({
+        color: ION_COLORS.hydrogenBond,
+        emissive: ION_COLORS.hydrogenBond,
+        emissiveIntensity: 0.9,
+        roughness: 0.32,
+        transparent: true,
+        opacity: Math.min(1, contactOpacity * 1.14),
+        depthWrite: false,
+        toneMapped: false,
+      });
+      const bondsMesh = new THREE.InstancedMesh(geometry, material, dashedSegments.length);
+      const transform = new THREE.Object3D();
+      const yAxis = new THREE.Vector3(0, 1, 0);
+      dashedSegments.forEach(({ start, end }, index) => {
+        const direction = end.clone().sub(start);
+        const length = direction.length();
+        transform.position.copy(start).add(end).multiplyScalar(0.5);
+        transform.quaternion.setFromUnitVectors(yAxis, direction.normalize());
+        transform.scale.set(1, length, 1);
+        transform.updateMatrix();
+        bondsMesh.setMatrixAt(index, transform.matrix);
+      });
+      bondsMesh.instanceMatrix.needsUpdate = true;
+      bondsMesh.renderOrder = 4;
+      group.add(bondsMesh);
     }
+  }
 
+  if (options.ions) {
     // Guanidinium cations are schematically placed near acidic side chains and
     // selected backbone carbonyl oxygens. Chloride is shown in the solvent shell.
     const amount = THREE.MathUtils.clamp(concentration / 8, 0, 1);
@@ -357,12 +382,12 @@ function renderProtein(
 
 }
 
-export function ProteinViewer({ model, onReset, unfolded, trapped, concentration, compare, showHelices, showSheets, showDisulfides, showIonInteractions }: Props) {
+export function ProteinViewer({ model, onReset, unfolded, trapped, concentration, compare, showHelices, showSheets, showDisulfides, showIons, showHydrogenBonds }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(unfolded);
   const trappedRef = useRef(trapped);
   const concentrationRef = useRef(concentration);
-  const optionsRef = useRef({ helices: showHelices, sheets: showSheets, disulfides: showDisulfides, ions: showIonInteractions, compare });
+  const optionsRef = useRef({ helices: showHelices, sheets: showSheets, disulfides: showDisulfides, ions: showIons, hydrogenBonds: showHydrogenBonds, compare });
   const resetRef = useRef<(() => void) | null>(null);
   const centerRef = useRef<(() => void) | null>(null);
 
@@ -370,9 +395,9 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
   useEffect(() => { trappedRef.current = trapped; }, [trapped]);
   useEffect(() => { concentrationRef.current = concentration; }, [concentration]);
   useEffect(() => {
-    optionsRef.current = { helices: showHelices, sheets: showSheets, disulfides: showDisulfides, ions: showIonInteractions, compare };
+    optionsRef.current = { helices: showHelices, sheets: showSheets, disulfides: showDisulfides, ions: showIons, hydrogenBonds: showHydrogenBonds, compare };
     if (model) window.dispatchEvent(new CustomEvent('lysozyme:refresh-view'));
-  }, [compare, model, showDisulfides, showHelices, showSheets, showIonInteractions]);
+  }, [compare, model, showDisulfides, showHelices, showSheets, showIons, showHydrogenBonds]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -455,7 +480,7 @@ export function ProteinViewer({ model, onReset, unfolded, trapped, concentration
       renderProtein(proteinGroup, model, current, currentTrapped, currentConcentration, opts, 1);
       if (lastGhostState !== opts.compare) {
         disposeGroup(ghostGroup);
-        if (opts.compare) renderProtein(ghostGroup, model, 0, 0, 0, { helices: true, sheets: true, disulfides: false, ions: false }, 0.22);
+        if (opts.compare) renderProtein(ghostGroup, model, 0, 0, 0, { helices: true, sheets: true, disulfides: false, ions: false, hydrogenBonds: false }, 0.22);
         lastGhostState = opts.compare;
       }
       if (lastDraw === 0) resetCamera();
