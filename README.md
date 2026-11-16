@@ -1,6 +1,6 @@
 # MG Possible Lab – Proteindynamik mit Guanidiniumchlorid
 
-Version 1.3.1 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
+Version 1.3.2 · Interaktive 3D-Websimulation für den naturwissenschaftlichen Unterricht.
 
 ## Wissenschaftliche Ausgangsbasis
 
@@ -97,3 +97,8 @@ Unter **Settings → Pages → Build and deployment** muss als Quelle **GitHub A
 - Counterion Effects on the Denaturing Activity of Guanidinium Cation to Protein, J. Chem. Theory Comput. (2012): <https://doi.org/10.1021/ct3002267>
 - Effect of Guanidinium Chloride Concentration on the Renaturation of Denatured Lysozyme (2001): <https://pubmed.ncbi.nlm.nih.gov/12040421/>
 - Kinetics of secondary structure recovery during refolding of reduced hen egg white lysozyme (1997): <https://pubmed.ncbi.nlm.nih.gov/9312083/>
+
+
+### Version 1.3.2
+
+Die Legendenbezeichnungen sind verkürzt („Disulfidbrücken“, „H-Brücken“); die H-Brücken sind in der 3D-Ansicht kontrastreicher cyanfarben hervorgehoben. Der Einleitungstext wurde angepasst. In der Molekülansicht setzt eine zusätzliche Reset-Schaltfläche das gesamte Experiment zurück. Die Übergangskurve ist interaktiv: Der gelbe Marker kann mit Maus oder Touch entlang der Konzentrationsachse gezogen werden. Konzentrationsanzeige, Kurvenmarker und Hauptregler bleiben synchron. Der Marker ist außerdem per Tastatur (Pfeiltasten, Pos1/Ende) bedienbar.

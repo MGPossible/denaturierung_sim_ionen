@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { ProteinViewer } from './components/ProteinViewer';
 import { getConcentrationCurve, getIndicators, getIrreversibleThresholdConcentration, getStructureState } from './lib/model';
 import { parsePdb, type ProteinModel } from './lib/pdb';
@@ -17,8 +17,9 @@ function MetricBar({ label, value, color }: { label: string; value: number; colo
   );
 }
 
-function ConcentrationChart({ concentration, unfoldedIndex }: { concentration: number; unfoldedIndex: number }) {
+function ConcentrationChart({ concentration, unfoldedIndex, onConcentrationChange }: { concentration: number; unfoldedIndex: number; onConcentrationChange: (value: number) => void }) {
   const curve = useMemo(() => getConcentrationCurve(), []);
+  const activePointer = useRef<number | null>(null);
   const width = 520;
   const height = 170;
   const left = 54;
@@ -29,9 +30,46 @@ function ConcentrationChart({ concentration, unfoldedIndex }: { concentration: n
   const y = (v: number) => top + (1 - v) * (height - top - bottom);
   const path = curve.map((point, index) => `${index === 0 ? 'M' : 'L'} ${x(point.concentration).toFixed(1)} ${y(point.index).toFixed(1)}`).join(' ');
   const threshold = getIrreversibleThresholdConcentration();
+  const updateFromPointer = (event: ReactPointerEvent<SVGRectElement>) => {
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    const bounds = svg.getBoundingClientRect();
+    if (bounds.width <= 0) return;
+    const svgX = ((event.clientX - bounds.left) / bounds.width) * width;
+    const fraction = Math.max(0, Math.min(1, (svgX - left) / (width - left - right)));
+    onConcentrationChange(Number((fraction * 8).toFixed(2)));
+  };
+  const handlePointerDown = (event: ReactPointerEvent<SVGRectElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    activePointer.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateFromPointer(event);
+  };
+  const handlePointerMove = (event: ReactPointerEvent<SVGRectElement>) => {
+    if (activePointer.current === event.pointerId) updateFromPointer(event);
+  };
+  const handlePointerEnd = (event: ReactPointerEvent<SVGRectElement>) => {
+    if (activePointer.current === event.pointerId) activePointer.current = null;
+  };
+  const handleSliderKeyDown = (event: ReactKeyboardEvent<SVGRectElement>) => {
+    const step = event.shiftKey ? 0.5 : 0.1;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      onConcentrationChange(Math.max(0, Number((concentration - step).toFixed(2))));
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      onConcentrationChange(Math.min(8, Number((concentration + step).toFixed(2))));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      onConcentrationChange(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      onConcentrationChange(8);
+    }
+  };
   return (
     <div className="chart-wrap">
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Modellkurve: normierter Entfaltungsindex in Abhängigkeit von der Guanidiniumchlorid-Konzentration">
+      <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Interaktive Modellkurve: Ziehe den gelben Marker, um die Guanidiniumchlorid-Konzentration zu ändern.">
         <rect x={x(threshold)} y={top} width={width - right - x(threshold)} height={height - top - bottom} className="chart-threshold-zone" />
         {[0, 0.5, 1].map((tick) => (
           <g key={tick}>
@@ -46,13 +84,28 @@ function ConcentrationChart({ concentration, unfoldedIndex }: { concentration: n
           </g>
         ))}
         <path d={path} className="chart-curve" />
-        <line x1={x(threshold)} x2={x(threshold)} y1={top} y2={height - bottom} className="chart-threshold" />
+        <rect
+          x={left} y={top} width={width - left - right} height={height - top - bottom}
+          className="chart-hit-area"
+          role="slider" tabIndex={0} focusable="true"
+          aria-label="Guanidiniumchlorid-Konzentration über die Übergangskurve einstellen"
+          aria-valuemin={0} aria-valuemax={8} aria-valuenow={concentration}
+          aria-valuetext={`${concentration.toFixed(2).replace('.', ',')} mol pro Liter`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
+          onLostPointerCapture={handlePointerEnd}
+          onKeyDown={handleSliderKeyDown}
+        />
+        <line x1={x(threshold)} x2={x(threshold)} y1={top} y2={height - bottom} className="chart-threshold chart-overlay" />
         <line x1={x(concentration)} x2={x(concentration)} y1={top} y2={height - bottom} className="chart-cursor" />
-        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="6" className="chart-dot" />
+        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="11" className="chart-dot-halo" />
+        <circle cx={x(concentration)} cy={y(unfoldedIndex)} r="6" className="chart-dot" pointerEvents="none" />
         <text x="13" y={(top + height - bottom) / 2} textAnchor="middle" transform={`rotate(-90 13 ${(top + height - bottom) / 2})`} className="chart-axis-title">Entfaltungsindex</text>
         <text x={(left + width - right) / 2} y={height - 1} textAnchor="middle" className="chart-axis-title">GdmCl (mol/L)</text>
       </svg>
-      <div className="chart-footnote"><span>Modellkurve</span><span>Modellgrenze bei {threshold.toFixed(1).replace(".", ",")} M</span></div>
+      <div className="chart-footnote"><span>Gelben Marker ziehen</span><span>Modellgrenze bei {threshold.toFixed(1).replace(".", ",")} M</span></div>
     </div>
   );
 }
@@ -135,6 +188,11 @@ export default function App() {
     }
   }, [concentration, playbackDirection, playing]);
 
+  function updateConcentration(value: number) {
+    setPlaying(false);
+    setConcentration(Math.max(0, Math.min(8, Number(value.toFixed(2)))));
+  }
+
   function reset() {
     setPlaying(false);
     setConcentration(0);
@@ -178,7 +236,7 @@ export default function App() {
         <section className="intro-row">
           <div>
             <h1>Wenn Proteine<br /><em>ihre Form verlieren.</em></h1>
-            <p className="intro-copy">Erkunde, wie Guanidiniumchlorid die räumliche Struktur von Hühnereiweiß-Lysozym verändert – und wie sie sich beim Verdünnen wieder ordnen kann.</p>
+            <p className="intro-copy">Erkunde, am Beispiel von Guanidiniumchlorid wie Salze die räumliche Struktur von Proteinen (hier: Hühnereiweiß-Lysozym) dauerhaft oder reversibel verändern können – und wie sie sich die Proteinkette beim Verdünnen unter Umständen (um-)ordnen können.</p>
           </div>
           <div className="conditions-card">
             <div className="conditions-heading">VERSUCHSBEDINGUNGEN</div>
@@ -198,6 +256,7 @@ export default function App() {
             </div>
             <ProteinViewer
               model={model}
+              onReset={reset}
               unfolded={indicators.reversible}
               trapped={indicators.trapped}
               concentration={concentration}
@@ -211,10 +270,10 @@ export default function App() {
               <span><i className="legend-dot helix" /> α-Helix</span>
               <span><i className="legend-dot sheet" /> β-Faltblatt</span>
               <span><i className="legend-dot loop" /> Schleife</span>
-              <span><i className="legend-dot disulfide" /> Disulfidbrücken · Cys 6–127, 30–115, 64–80, 76–94</span>
+              <span><i className="legend-dot disulfide" /> Disulfidbrücken</span>
               <span><i className="legend-dot ion-gdm" /> Gdm⁺</span>
               <span><i className="legend-dot ion-cl" /> Cl⁻</span>
-              <span><i className="legend-line hbond" /> Backbone-H-Brücke</span>
+              <span><i className="legend-line hbond" /> H-Brücken</span>
             </div>
             <div className="viewer-options" aria-label="Einblendungen der Proteinstruktur">
               <label className="switch-label"><input type="checkbox" checked={showHelices} onChange={(event) => setShowHelices(event.target.checked)} /> Helices</label>
@@ -268,7 +327,7 @@ export default function App() {
 
             <article className="chart-card panel">
               <div className="panel-heading compact"><div><div className="panel-kicker">KONZENTRATION · STRUKTUR</div><h2>Übergangskurve</h2></div><span className="chart-live">LIVE</span></div>
-              <ConcentrationChart concentration={concentration} unfoldedIndex={indicators.unfolded} />
+              <ConcentrationChart concentration={concentration} unfoldedIndex={indicators.unfolded} onConcentrationChange={updateConcentration} />
             </article>
           </aside>
         </section>
@@ -283,7 +342,7 @@ export default function App() {
               className="concentration-slider"
               aria-label="Guanidiniumchlorid-Konzentration in mol pro Liter"
               type="range" min="0" max="8" step="0.01" value={concentration}
-              onChange={(event) => { setPlaying(false); setConcentration(Number(event.target.value)); }}
+              onChange={(event) => updateConcentration(Number(event.target.value))}
               style={{ '--range-fill': `${(concentration / 8) * 100}%` } as CSSProperties & { '--range-fill': string }}
             />
             <div className="range-labels"><span>0,0 M · nativ</span><span>2,0 M</span><span>4,0 M</span><span>6,0 M</span><span>8,0 M · hoch</span></div>

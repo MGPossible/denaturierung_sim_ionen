@@ -6,6 +6,7 @@ import { getSecondaryRetention, morphCoordinates } from '../lib/model';
 
 type Props = {
   model: ProteinModel | null;
+  onReset: () => void;
   unfolded: number;
   trapped: number;
   concentration: number;
@@ -25,7 +26,7 @@ const COLORS: Record<SecondaryType, number> = {
 const ION_COLORS = {
   guanidinium: 0xff8c68,
   chloride: 0x72bfff,
-  hydrogenBond: 0x9ce9dd,
+  hydrogenBond: 0x28efff,
   disulfide: 0xa8efa0,
 };
 
@@ -274,14 +275,14 @@ function renderProtein(
       const geometry = new THREE.BufferGeometry().setFromPoints(anchorVertices);
       group.add(new THREE.LineSegments(
         geometry,
-        new THREE.LineBasicMaterial({ color: 0xa7c2c5, transparent: true, opacity: contactOpacity * 0.58, depthWrite: false }),
+        new THREE.LineBasicMaterial({ color: 0xc0e1e5, transparent: true, opacity: contactOpacity * 0.82, depthWrite: false }),
       ));
     }
     if (dashedVertices.length) {
       const geometry = new THREE.BufferGeometry().setFromPoints(dashedVertices);
       group.add(new THREE.LineSegments(
         geometry,
-        new THREE.LineBasicMaterial({ color: ION_COLORS.hydrogenBond, transparent: true, opacity: contactOpacity, depthWrite: false }),
+        new THREE.LineBasicMaterial({ color: ION_COLORS.hydrogenBond, transparent: true, opacity: Math.min(1, contactOpacity * 1.32), depthWrite: false }),
       ));
     }
 
@@ -356,7 +357,7 @@ function renderProtein(
 
 }
 
-export function ProteinViewer({ model, unfolded, trapped, concentration, compare, showHelices, showSheets, showDisulfides, showIonInteractions }: Props) {
+export function ProteinViewer({ model, onReset, unfolded, trapped, concentration, compare, showHelices, showSheets, showDisulfides, showIonInteractions }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef(unfolded);
   const trappedRef = useRef(trapped);
@@ -524,8 +525,9 @@ export function ProteinViewer({ model, unfolded, trapped, concentration, compare
         )}
       </div>
       {model && (
-        <div className="viewer-toolbar" aria-label="3D-Kamerasteuerung">
-          <button type="button" onClick={() => resetRef.current?.()} title="Kameraposition zurücksetzen" aria-label="Kameraposition zurücksetzen">↺</button>
+        <div className="viewer-toolbar" aria-label="Molekül- und Kamerasteuerung">
+          <button className="viewer-experiment-reset" type="button" onClick={onReset} title="Das Experiment auf 0,0 mol/L und den nativen Ausgangszustand zurücksetzen" aria-label="Experiment zurücksetzen">↺ Reset</button>
+          <button type="button" onClick={() => resetRef.current?.()} title="Kameraposition zurücksetzen" aria-label="Kameraposition zurücksetzen">⌂</button>
           <button type="button" onClick={() => centerRef.current?.()} title="Protein im Bild zentrieren" aria-label="Protein zentrieren">◎</button>
           <span>Ziehen: drehen · Zwei Finger: zoomen/verschieben</span>
         </div>
